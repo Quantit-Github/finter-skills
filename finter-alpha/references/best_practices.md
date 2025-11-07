@@ -17,7 +17,12 @@ def get(self, start, end):
 
 # ✓ CORRECT - Always shift positions
 def get(self, start, end):
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
+    close = cf.get_df("price_close")
     momentum = close.pct_change(20)
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return momentum.shift(1).loc[str(start):str(end)]
 ```
 
@@ -39,9 +44,16 @@ def get(self, start, end):
 
 # ✓ CORRECT - Normalize to total capital
 def get(self, start, end):
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
+    close = cf.get_df("price_close")
+    momentum = close.pct_change(20)
+
     signals = momentum > 0
-    # Divide by number of positions
+    # Divide by number of positions, 1e8 == 100% of AUM
     positions = signals.div(signals.sum(axis=1), axis=0) * 1e8
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return positions.shift(1).loc[str(start):str(end)]
 ```
 
@@ -63,16 +75,32 @@ def get(self, start, end):
     cf = ContentFactory("kr_stock", start, end)
     close = cf.get_df("price_close")
     momentum = close.pct_change(100)  # First 100 days will be NaN!
-    
-# ✓ CORRECT - Load extra data
+
+# ✓ CORRECT - Load with proper buffer using get_start_date()
 def get(self, start, end):
-    cf = ContentFactory("kr_stock", start - 10000, end)  # Extra buffer
+    # Rule of thumb: buffer = 2x longest lookback + 250 days
+    cf = ContentFactory("kr_stock", get_start_date(start, 100 * 2 + 250), end)
     close = cf.get_df("price_close")
     momentum = close.pct_change(100)
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return momentum.shift(1).loc[str(start):str(end)]
 ```
 
 **Rule of Thumb:** Buffer = 2x longest lookback period + 250 days
+
+Use the helper function:
+```python
+def get_start_date(start: int, buffer: int = 365) -> int:
+    """
+    Get start date with buffer days
+    Rule of thumb: buffer = 2x longest lookback + 250 days
+    """
+    from datetime import datetime, timedelta
+    return int(
+        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime("%Y%m%d")
+    )
+```
 
 ### 4. NaN Handling
 
@@ -81,17 +109,28 @@ def get(self, start, end):
 ```python
 # ❌ WRONG - NaN values create empty positions
 def get(self, start, end):
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
+    close = cf.get_df("price_close")
     momentum = close.pct_change(20)
     # If any NaN, entire row becomes NaN after division
     positions = momentum.div(momentum.sum(axis=1), axis=0) * 1e8
 
 # ✓ CORRECT - Handle NaN explicitly
 def get(self, start, end):
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
+    close = cf.get_df("price_close")
     momentum = close.pct_change(20)
+
     # Fill NaN with 0 or drop
     momentum_clean = momentum.fillna(0)
     # Or: momentum_clean = momentum.dropna(axis=1, how='all')
+
+    # Equal weight selected stocks, 1e8 == 100% of AUM
     positions = momentum_clean.div(momentum_clean.sum(axis=1), axis=0) * 1e8
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
+    return positions.shift(1).loc[str(start):str(end)]
 ```
 
 ### 5. Incorrect Class Name
@@ -118,9 +157,9 @@ class Alpha(BaseAlpha):
 ```python
 # ❌ SLOW - Row-by-row iteration
 def get(self, start, end):
-    cf = ContentFactory("kr_stock", start - 10000, end)
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    
+
     results = []
     for date in close.index:
         row = close.loc[date]
@@ -130,9 +169,14 @@ def get(self, start, end):
 
 # ✓ FAST - Vectorized operations
 def get(self, start, end):
-    cf = ContentFactory("kr_stock", start - 10000, end)
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(20)  # Operates on entire DataFrame
+
+    # Operates on entire DataFrame at once
+    momentum = close.pct_change(20)
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return momentum.shift(1).loc[str(start):str(end)]
 ```
 

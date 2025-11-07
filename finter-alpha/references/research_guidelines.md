@@ -103,6 +103,10 @@ if condition1 and condition2:
 # Good: Clear, understandable logic
 momentum = price.pct_change(period)
 signal = momentum > threshold
+
+# CRITICAL: Always shift positions to avoid look-ahead bias
+positions = signal.astype(float) * 1e8
+return positions.shift(1)
 ```
 
 ❌ **Data snooping**

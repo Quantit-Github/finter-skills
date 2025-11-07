@@ -2,6 +2,27 @@
 
 Complete, working implementations of various alpha strategies using the BaseAlpha framework.
 
+## Helper Function
+
+All examples use this helper function for date handling:
+
+```python
+def get_start_date(start: int, buffer: int = 365) -> int:
+    """
+    Get start date with buffer days
+
+    Because we need to load data with buffer for calculations
+    Rule of thumb: buffer = 2x longest lookback + 250 days
+    """
+    from datetime import datetime, timedelta
+
+    return int(
+        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime(
+            "%Y%m%d"
+        )
+    )
+```
+
 ## BaseAlpha Examples
 
 ### 1. Simple Momentum Strategy
@@ -11,37 +32,61 @@ from finter import BaseAlpha
 from finter.data import ContentFactory
 import pandas as pd
 
+
 class Alpha(BaseAlpha):
     """
     Classic momentum strategy: Buy recent winners, sell recent losers.
+
+    Strategy Logic:
+    1. Calculate price momentum over specified period
+    2. Rank all stocks by momentum
+    3. Select top performers above threshold
+    4. Equal weight selected stocks
     """
-    
+
     def get(self, start: int, end: int,
             momentum_period: int = 21,
             top_percent: float = 0.9) -> pd.DataFrame:
         """
+        Generate alpha positions for date range.
+
         Parameters
         ----------
+        start : int
+            Start date in YYYYMMDD format (e.g., 20240101)
+        end : int
+            End date in YYYYMMDD format (e.g., 20241231)
         momentum_period : int
             Lookback period for momentum calculation (default: 21 days)
         top_percent : float
             Percentile threshold for selection (0.9 = top 10% stocks)
+
+        Returns
+        -------
+        pd.DataFrame
+            Position DataFrame with:
+            - Index: Trading dates
+            - Columns: Stock tickers (FINTER IDs)
+            - Values: Position sizes (money allocated, row sum ≤ 1e8)
         """
-        # Load data with buffer
-        cf = ContentFactory("kr_stock", start - 10000, end)
+        # Load data with buffer for calculations
+        # Rule of thumb: buffer = 2x longest lookback + 250 days
+        cf = ContentFactory("kr_stock", get_start_date(start, momentum_period * 2 + 250), end)
         close = cf.get_df("price_close")
-        
+
         # Calculate momentum
         momentum = close.pct_change(momentum_period)
-        
+
         # Rank stocks by momentum
         rank = momentum.rank(pct=True, axis=1)
-        
+
         # Select top stocks
         selected = rank >= top_percent
+
+        # Create positions (equal weight), 1e8 == 100% of AUM
         weights = selected.div(selected.sum(axis=1), axis=0) * 1e8
-        
-        # Shift to avoid look-ahead bias
+
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         return weights.shift(1).loc[str(start):str(end)]
 ```
 
@@ -57,8 +102,14 @@ top_percent: [0.8, 0.9, 0.95]
 class Alpha(BaseAlpha):
     """
     Buy oversold stocks, sell overbought stocks based on z-score.
+
+    Strategy Logic:
+    1. Calculate rolling z-score of prices
+    2. Identify oversold stocks (z-score below threshold)
+    3. Equal weight selected stocks
+    4. Smooth positions over holding period
     """
-    
+
     def get(self, start: int, end: int,
             lookback: int = 60,
             z_threshold: float = 2.0,
@@ -73,23 +124,25 @@ class Alpha(BaseAlpha):
         holding_period : int
             Days to hold position for smoothing
         """
-        cf = ContentFactory("kr_stock", start - 10000, end)
+        # Load data with buffer
+        cf = ContentFactory("kr_stock", get_start_date(start, lookback * 2 + 250), end)
         close = cf.get_df("price_close")
-        
+
         # Calculate z-score
         rolling_mean = close.rolling(lookback).mean()
         rolling_std = close.rolling(lookback).std()
         z_score = (close - rolling_mean) / rolling_std
-        
+
         # Buy oversold (z-score < -threshold)
         buy_signal = z_score < -z_threshold
-        
-        # Equal weight among selected stocks
+
+        # Equal weight among selected stocks, 1e8 == 100% of AUM
         weights = buy_signal.div(buy_signal.sum(axis=1), axis=0) * 1e8
-        
+
         # Smooth with rolling average
         weights_smooth = weights.rolling(holding_period).mean()
-        
+
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         return weights_smooth.shift(1).loc[str(start):str(end)]
 ```
 
@@ -106,8 +159,15 @@ holding_period: [3, 5, 10]
 class Alpha(BaseAlpha):
     """
     Combine momentum, value, and quality factors with configurable weights.
+
+    Strategy Logic:
+    1. Calculate momentum factor (price change)
+    2. Calculate value factor (inverse PBR)
+    3. Calculate quality factor (ROE)
+    4. Combine factors with weights
+    5. Select top N stocks by combined score
     """
-    
+
     def get(self, start: int, end: int,
             momentum_weight: float = 0.4,
             value_weight: float = 0.3,
@@ -128,36 +188,38 @@ class Alpha(BaseAlpha):
         top_stocks : int
             Number of top stocks to select
         """
-        cf = ContentFactory("kr_stock", start - 10000, end)
-        
+        # Load data with buffer
+        cf = ContentFactory("kr_stock", get_start_date(start, momentum_period * 2 + 250), end)
+
         # Load data
         close = cf.get_df("price_close")
         pbr = cf.get_df("pbr")
         roe = cf.get_df("roe")
-        
+
         # Factor 1: Momentum (price change)
         momentum_score = close.pct_change(momentum_period).rank(axis=1, pct=True)
-        
+
         # Factor 2: Value (inverse PBR)
         value_score = (1 / pbr).rank(axis=1, pct=True)
-        
+
         # Factor 3: Quality (ROE)
         quality_score = roe.rank(axis=1, pct=True)
-        
+
         # Combine factors with weights
         combined_score = (
             momentum_score * momentum_weight +
             value_score * value_weight +
             quality_score * quality_weight
         )
-        
+
         # Select top N stocks
         rank = combined_score.rank(axis=1, ascending=False)
         selected = rank <= top_stocks
-        
-        # Equal weight among selected
+
+        # Equal weight among selected, 1e8 == 100% of AUM
         weights = selected.div(selected.sum(axis=1), axis=0) * 1e8
-        
+
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         return weights.shift(1).loc[str(start):str(end)]
 ```
 
@@ -175,11 +237,17 @@ top_stocks: [20, 30, 50]
 ```python
 import numpy as np
 
+
 class Alpha(BaseAlpha):
     """
     RSI-based mean reversion: Buy oversold, sell overbought.
+
+    Strategy Logic:
+    1. Calculate RSI (Relative Strength Index)
+    2. Identify oversold stocks (RSI below threshold)
+    3. Equal weight selected stocks
     """
-    
+
     def get(self, start: int, end: int,
             rsi_period: int = 14,
             oversold: float = 30,
@@ -194,32 +262,33 @@ class Alpha(BaseAlpha):
         overbought : float
             RSI threshold for sell signal (typically 70-80)
         """
-        cf = ContentFactory("kr_stock", start - 10000, end)
+        # Load data with buffer
+        cf = ContentFactory("kr_stock", get_start_date(start, rsi_period * 3 + 250), end)
         close = cf.get_df("price_close")
-        
+
         # Calculate price changes
         delta = close.diff()
-        
+
         # Separate gains and losses
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
-        
+
         # Calculate average gain and loss
         avg_gain = gain.rolling(rsi_period).mean()
         avg_loss = loss.rolling(rsi_period).mean()
-        
+
         # Calculate RS and RSI
         rs = avg_gain / avg_loss
         rsi = 100 - (100 / (1 + rs))
-        
-        # Generate signals
-        buy_signal = rsi < oversold   # Oversold
-        sell_signal = rsi > overbought  # Overbought
-        
-        # Long positions on buy signals
+
+        # Generate signals (buy oversold stocks)
+        buy_signal = rsi < oversold
+
+        # Long positions on buy signals, 1e8 == 100% of AUM
         positions = buy_signal.astype(float)
         weights = positions.div(positions.sum(axis=1), axis=0) * 1e8
-        
+
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         return weights.shift(1).loc[str(start):str(end)]
 ```
 
@@ -236,8 +305,15 @@ overbought: [70, 75, 80]
 class Alpha(BaseAlpha):
     """
     Risk-adjusted momentum: Weight by return/volatility ratio (Sharpe-like).
+
+    Strategy Logic:
+    1. Calculate price returns over specified period
+    2. Calculate rolling volatility
+    3. Compute risk-adjusted return (return / volatility)
+    4. Select top stocks by risk-adjusted performance
+    5. Weight by risk-adjusted return magnitude
     """
-    
+
     def get(self, start: int, end: int,
             return_period: int = 60,
             vol_period: int = 60,
@@ -252,27 +328,30 @@ class Alpha(BaseAlpha):
         top_percent : float
             Percentile for stock selection (0.2 = top 20%)
         """
-        cf = ContentFactory("kr_stock", start - 10000, end)
+        # Load data with buffer
+        buffer = max(return_period, vol_period) * 2 + 250
+        cf = ContentFactory("kr_stock", get_start_date(start, buffer), end)
         close = cf.get_df("price_close")
-        
+
         # Calculate returns
         returns = close.pct_change(return_period)
-        
+
         # Calculate volatility
         daily_returns = close.pct_change()
         volatility = daily_returns.rolling(vol_period).std()
-        
+
         # Risk-adjusted return (Sharpe-like ratio)
         risk_adj_return = returns / volatility
-        
+
         # Select top stocks by risk-adjusted return
         rank = risk_adj_return.rank(pct=True, axis=1)
         selected = rank >= (1 - top_percent)
-        
-        # Weight by risk-adjusted return magnitude
+
+        # Weight by risk-adjusted return magnitude, 1e8 == 100% of AUM
         weights = (selected * risk_adj_return).clip(lower=0)
         weights = weights.div(weights.sum(axis=1), axis=0) * 1e8
-        
+
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         return weights.shift(1).loc[str(start):str(end)]
 ```
 
@@ -293,6 +372,12 @@ class Alpha(BaseAlpha):
     """
     Strategy targeting specific stocks only (Samsung, SK Hynix, NAVER).
     Stock IDs were found using Symbol.search() and hardcoded here.
+
+    Strategy Logic:
+    1. Load data for specific stocks only
+    2. Calculate momentum for each stock
+    3. Rank and select stocks with positive momentum
+    4. Equal weight selected stocks
     """
 
     def get(self, start: int, end: int,
@@ -303,7 +388,8 @@ class Alpha(BaseAlpha):
         momentum_period : int
             Momentum calculation period
         """
-        cf = ContentFactory("kr_stock", start - 10000, end)
+        # Load data with buffer
+        cf = ContentFactory("kr_stock", get_start_date(start, momentum_period * 2 + 250), end)
 
         # Hardcoded FINTER IDs (found using Symbol.search())
         # NOTE: These are example IDs - use actual IDs from Symbol.search()
@@ -322,10 +408,11 @@ class Alpha(BaseAlpha):
         # Rank stocks by momentum
         rank = momentum.rank(axis=1, pct=True)
 
-        # Allocate to stocks with positive momentum
+        # Allocate to stocks with positive momentum, 1e8 == 100% of AUM
         selected = rank > 0.5
         weights = selected.div(selected.sum(axis=1), axis=0) * 1e8
 
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         return weights.shift(1).loc[str(start):str(end)]
 ```
 
@@ -357,10 +444,17 @@ class Alpha(BaseAlpha):
     """
     FAANG momentum strategy.
     Stock IDs were found using Symbol.search() and hardcoded.
+
+    Strategy Logic:
+    1. Load data for FAANG stocks only
+    2. Calculate 20-day returns
+    3. Select top 3 performers
+    4. Equal weight selected stocks
     """
 
     def get(self, start: int, end: int) -> pd.DataFrame:
-        cf = ContentFactory("us_stock", start - 10000, end)
+        # Load data with buffer
+        cf = ContentFactory("us_stock", get_start_date(start, 20 * 2 + 250), end)
 
         # Hardcoded FINTER IDs for FAANG stocks
         # NOTE: These are example IDs - use actual IDs from Symbol.search()
@@ -380,7 +474,10 @@ class Alpha(BaseAlpha):
         rank = returns_20d.rank(axis=1, ascending=False)
         selected = rank <= 3
 
+        # 1e8 == 100% of AUM
         weights = selected.div(selected.sum(axis=1), axis=0) * 1e8
+
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         return weights.shift(1).loc[str(start):str(end)]
 ```
 
@@ -389,12 +486,17 @@ class Alpha(BaseAlpha):
 ### Equal Weight Portfolio
 
 ```python
-# BaseAlpha version
+# Simple equal weight across all available stocks
 def get(self, start, end):
-    cf = ContentFactory("kr_stock", start - 1000, end)
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start), end)
     close = cf.get_df("price_close")
+
+    # Equal weight all stocks, 1e8 == 100% of AUM
     n_stocks = close.shape[1]
     positions = close.notna().astype(float) * (1e8 / n_stocks)
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return positions.shift(1).loc[str(start):str(end)]
 ```
 
@@ -403,35 +505,44 @@ def get(self, start, end):
 ```python
 # Select top 20 stocks by momentum
 def get(self, start, end, top_k=20):
-    cf = ContentFactory("kr_stock", start - 10000, end)
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
     momentum = close.pct_change(20)
-    
+
+    # Select top K stocks
     top_k_mask = momentum.rank(axis=1, ascending=False) <= top_k
+
+    # Equal weight selected stocks, 1e8 == 100% of AUM
     positions = top_k_mask.astype(float) * (1e8 / top_k)
-    
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return positions.shift(1).loc[str(start):str(end)]
 ```
 
 ### Rolling Rebalance
 
 ```python
-# Rebalance only every N days
+# Rebalance only every N days to reduce transaction costs
 def get(self, start, end, rebalance_freq=5):
-    cf = ContentFactory("kr_stock", start - 10000, end)
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    
+
+    # Calculate momentum and select stocks
     momentum = close.pct_change(20)
     rank = momentum.rank(pct=True, axis=1)
     selected = rank >= 0.9
-    
+
+    # Equal weight selected stocks, 1e8 == 100% of AUM
     weights = selected.div(selected.sum(axis=1), axis=0) * 1e8
-    
-    # Rebalance only every N days
+
+    # Rebalance only every N days (forward fill positions)
     rebalanced = weights.iloc[::rebalance_freq].reindex(
         weights.index, method='ffill'
     )
-    
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return rebalanced.shift(1).loc[str(start):str(end)]
 ```
 

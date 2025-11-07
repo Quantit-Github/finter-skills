@@ -77,7 +77,7 @@ positions = pd.DataFrame({
 
 ### 1. Always Shift Positions
 
-**Always** use `.shift(1)` to avoid look-ahead bias:
+**CRITICAL**: Always use `.shift(1)` to avoid look-ahead bias:
 
 ```python
 # ❌ Wrong - using same day's signal
@@ -90,24 +90,40 @@ def get(self, start, end):
 def get(self, start, end):
     momentum = close.pct_change(20)
     positions = (momentum > 0).astype(float) * 1e8 / 10
-    return positions.shift(1).loc[str(start):str(end)]  # Proper shift
+    # CRITICAL: Always shift positions to avoid look-ahead bias
+    return positions.shift(1).loc[str(start):str(end)]
 ```
 
-### 2. No Future Data
+### 2. Load Data with Buffer
 
-Only use historical data in calculations:
+Always load data with buffer period for calculations. Use the `get_start_date()` helper:
 
 ```python
-# ❌ Wrong - using end date in data loading
+def get_start_date(start: int, buffer: int = 365) -> int:
+    """
+    Get start date with buffer days
+
+    Because we need to load data with buffer for calculations
+    Rule of thumb: buffer = 2x longest lookback + 250 days
+    """
+    from datetime import datetime, timedelta
+
+    return int(
+        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime(
+            "%Y%m%d"
+        )
+    )
+
+# ❌ Wrong - insufficient data for calculations
 def get(self, start, end):
-    cf = ContentFactory("kr_stock", start, end)
-    data = cf.get_df("price_close").loc[:str(end)]  # Uses future!
-    
-# ✓ Correct - load extra historical data
+    cf = ContentFactory("kr_stock", start, end)  # Not enough history!
+    momentum = close.pct_change(60)  # Will have NaN at start
+
+# ✓ Correct - load with proper buffer
 def get(self, start, end):
-    cf = ContentFactory("kr_stock", start - 10000, end)  # Buffer period
-    data = cf.get_df("price_close")
-    # Calculate signals, then filter at the end
+    # Rule of thumb: buffer = 2x longest lookback + 250 days
+    cf = ContentFactory("kr_stock", get_start_date(start, 60 * 2 + 250), end)
+    momentum = close.pct_change(60)  # Has enough history
 ```
 
 ### 3. Respect Position Constraints
@@ -128,54 +144,92 @@ from finter import BaseAlpha
 from finter.data import ContentFactory
 import pandas as pd
 
+
+def get_start_date(start: int, buffer: int = 365) -> int:
+    """
+    Get start date with buffer days
+
+    Because we need to load data with buffer for calculations
+    Rule of thumb: buffer = 2x longest lookback + 250 days
+    """
+    from datetime import datetime, timedelta
+
+    return int(
+        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime(
+            "%Y%m%d"
+        )
+    )
+
+
 class Alpha(BaseAlpha):
     """
     Simple momentum strategy with configurable parameters.
+
+    Strategy Logic:
+    1. Calculate price momentum over specified period
+    2. Rank all stocks by momentum percentile
+    3. Select top performers above threshold
+    4. Apply rolling average for position stability
+    5. Equal weight selected stocks
     """
-    
-    def get(self, start: int, end: int, 
-            momentum_period: int = 21, 
+
+    def get(self, start: int, end: int,
+            momentum_period: int = 21,
             top_percent: float = 0.9,
             rolling_window: int = 5) -> pd.DataFrame:
         """
-        Momentum-based long-only strategy.
-        
+        Generate alpha positions for date range.
+
         Parameters
         ----------
+        start : int
+            Start date in YYYYMMDD format (e.g., 20240101)
+        end : int
+            End date in YYYYMMDD format (e.g., 20241231)
         momentum_period : int
-            Lookback period for momentum calculation
+            Lookback period for momentum calculation (default: 21)
         top_percent : float
             Percentile threshold for stock selection (0.9 = top 10%)
         rolling_window : int
-            Smoothing window for position stability
+            Smoothing window for position stability (default: 5)
+
+        Returns
+        -------
+        pd.DataFrame
+            Position DataFrame with:
+            - Index: Trading dates
+            - Columns: Stock tickers (FINTER IDs)
+            - Values: Position sizes (money allocated, row sum ≤ 1e8)
         """
         # Load data with buffer for calculations
-        cf = ContentFactory("kr_stock", start - 10000, end)
-        
+        # Rule of thumb: buffer = 2x longest lookback + 250 days
+        buffer = max(momentum_period, rolling_window) * 2 + 250
+        cf = ContentFactory("kr_stock", get_start_date(start, buffer), end)
+
         # Retrieve daily closing prices
         close_price = cf.get_df("price_close")
-        
+
         # Calculate momentum
         momentum = close_price.pct_change(momentum_period)
-        
+
         # Rank stocks by momentum (percentile)
         stock_rank = momentum.rank(pct=True, axis=1)
-        
+
         # Select top stocks
         stock_top = stock_rank[stock_rank >= top_percent]
-        
+
         # Apply rolling mean for smoothing
         stock_top_rolling = stock_top.rolling(rolling_window).mean()
-        
-        # Normalize to position sizes
+
+        # Normalize to position sizes, 1e8 == 100% of AUM
         stock_ratio = stock_top_rolling.div(
             stock_top_rolling.sum(axis=1), axis=0
         )
         position = stock_ratio * 1e8
-        
-        # Shift to avoid look-ahead bias
+
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         alpha = position.shift(1)
-        
+
         # Return positions for requested date range
         return alpha.loc[str(start):str(end)]
 ```
@@ -186,13 +240,15 @@ class Alpha(BaseAlpha):
 
 ```python
 def get(self, start, end):
-    cf = ContentFactory("kr_stock", start - 1000, end)
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start), end)
     close = cf.get_df("price_close")
-    
-    # All stocks get equal weight
+
+    # All stocks get equal weight, 1e8 == 100% of AUM
     n_stocks = close.shape[1]
     positions = close.notna().astype(float) * (1e8 / n_stocks)
-    
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return positions.shift(1).loc[str(start):str(end)]
 ```
 
@@ -200,15 +256,19 @@ def get(self, start, end):
 
 ```python
 def get(self, start, end, top_k=10):
-    cf = ContentFactory("kr_stock", start - 10000, end)
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    
+
     momentum = close.pct_change(20)
-    
+
     # Select top K stocks per day
     top_k_mask = momentum.rank(axis=1, ascending=False) <= top_k
+
+    # Equal weight selected stocks, 1e8 == 100% of AUM
     positions = top_k_mask.astype(float) * (1e8 / top_k)
-    
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return positions.shift(1).loc[str(start):str(end)]
 ```
 
@@ -216,22 +276,26 @@ def get(self, start, end, top_k=10):
 
 ```python
 def get(self, start, end, mom_weight=0.5, val_weight=0.5):
-    cf = ContentFactory("kr_stock", start - 10000, end)
-    
+    # Load data with buffer
+    cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
+
     close = cf.get_df("price_close")
     pbr = cf.get_df("pbr")
-    
+
     # Rank each factor
     momentum_rank = close.pct_change(20).rank(axis=1, pct=True)
     value_rank = (1 / pbr).rank(axis=1, pct=True)
-    
+
     # Combine with weights
     combined = momentum_rank * mom_weight + value_rank * val_weight
-    
+
     # Select top 30% stocks
     selected = combined.rank(axis=1, pct=True) >= 0.7
+
+    # Equal weight selected stocks, 1e8 == 100% of AUM
     positions = selected.div(selected.sum(axis=1), axis=0) * 1e8
-    
+
+    # CRITICAL: Always shift positions to avoid look-ahead bias
     return positions.shift(1).loc[str(start):str(end)]
 ```
 

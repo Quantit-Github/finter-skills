@@ -69,7 +69,8 @@ class Alpha(BaseAlpha):
     """
 
     def get(self, start: int, end: int) -> pd.DataFrame:
-        cf = ContentFactory("kr_stock", start - 10000, end)
+        # Load data with buffer
+        cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
 
         # Hardcoded FINTER IDs (found using Symbol.search() above)
         # NOTE: These are example IDs - use actual IDs from Symbol.search()
@@ -86,10 +87,11 @@ class Alpha(BaseAlpha):
         momentum = close.pct_change(20)
         rank = momentum.rank(axis=1, pct=True)
 
-        # Equal weight allocation
+        # Equal weight allocation, 1e8 == 100% of AUM
         weights = (rank > 0).astype(float)
         weights = weights.div(weights.sum(axis=1), axis=0) * 1e8
 
+        # CRITICAL: Always shift positions to avoid look-ahead bias
         return weights.shift(1).loc[str(start):str(end)]
 ```
 
