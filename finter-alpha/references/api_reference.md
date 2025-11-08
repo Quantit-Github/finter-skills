@@ -266,10 +266,14 @@ print(f"Win Rate: {stats['Win Rate (%)']:.2f}%")
 # Daily data (pd.DataFrame)
 summary = result.summary
 
-nav = summary['nav']                # Net asset value
+nav = summary['nav']                # Net asset value (starts at 1000)
 daily_returns = summary['daily_return']  # Daily returns
 costs = summary['cost']             # Transaction costs
 cumulative_pnl = summary['cumulative_pnl']  # Cumulative P&L
+
+# IMPORTANT: NAV always starts at 1000
+# Final NAV = 1000 * (1 + Total Return / 100)
+# Example: 50% return → NAV ends at 1500
 ```
 
 ### Key Performance Metrics

@@ -14,11 +14,43 @@ Develop quantitative trading alpha strategies using the Finter framework.
 2. **Method name MUST be `get`** (not generate, calculate, etc.)
 3. **Method signature**: `def get(self, start: int, end: int, **kwargs) -> pd.DataFrame`
 4. **ALWAYS shift positions**: `return positions.shift(1)` to avoid look-ahead bias
-5. **Position constraints**: Row sums ≤ 1e8 (total AUM)
+5. **Position values = MONEY AMOUNT** (1e8 = 100% AUM), NOT signals (1/-1)!
+6. **Date buffer**: Use `get_start_date(start, buffer)`, NEVER `start - 300`!
 
 **Common Mistakes:**
+
+**Mistake 1: Using signals instead of money amounts**
 ```python
-# ❌ WRONG class/method names
+# ❌ WRONG - Using 1/-1 signals
+momentum = close.pct_change(20)
+positions = (momentum > 0).astype(float)  # Returns 1 or 0
+return positions.shift(1)  # WRONG! These are signals, not money!
+
+# ✅ CORRECT - Using money amounts (1e8 = 100% AUM)
+momentum = close.pct_change(20)
+selected = momentum > 0
+positions = selected.div(selected.sum(axis=1), axis=0) * 1e8  # Equal weight
+return positions.shift(1)  # Each position is money amount!
+```
+
+**Mistake 2: Wrong date buffer calculation**
+```python
+# ❌ WRONG - Direct subtraction breaks date format
+cf = ContentFactory("kr_stock", start - 300, end)  # 20240101 - 300 = 20239801!
+
+# ✅ CORRECT - Use get_start_date helper
+from helpers import get_start_date
+cf = ContentFactory("kr_stock", get_start_date(start, buffer=300), end)
+
+# get_start_date is included in all templates!
+def get_start_date(start: int, buffer: int = 365) -> int:
+    """Subtract buffer days from start date correctly"""
+    # Handles month/year boundaries properly
+```
+
+**Mistake 3: Wrong class/method names**
+```python
+# ❌ WRONG
 class MyAlpha(BaseAlpha):
     def generate(self, start, end):  # Wrong method name!
         return positions  # Missing shift!
@@ -26,8 +58,7 @@ class MyAlpha(BaseAlpha):
 # ✅ CORRECT
 class Alpha(BaseAlpha):
     def get(self, start: int, end: int, **kwargs) -> pd.DataFrame:
-        # ... your logic ...
-        return positions.shift(1)  # CRITICAL: Always shift!
+        return positions.shift(1)  # Correct!
 ```
 
 ## 📋 Workflow (DATA FIRST)
@@ -76,7 +107,12 @@ print(f"Sharpe Ratio: {stats['Sharpe Ratio']:.2f}")
 print(f"Max Drawdown: {stats['Max Drawdown (%)']:.2f}%")
 print(f"Win Rate: {stats['Win Rate (%)']:.2f}%")
 
-# IMPORTANT: DO NOT use 'Annual Return (%)' - it doesn't exist!
+# Step 4: Visualize NAV curve
+result.summary['nav'].plot(title='NAV (starts at 1000)', figsize=(12,6))
+
+# IMPORTANT:
+# - NAV always starts at 1000 (not 1 or 1e8!)
+# - DO NOT use 'Annual Return (%)' - it doesn't exist!
 ```
 
 See `references/api_reference.md` for complete Simulator API.

@@ -269,6 +269,7 @@ def run_backtest(alpha_file, start_date, end_date, universe):
     summary_file = output_dir / f"backtest_summary_{timestamp}.csv"
     result.summary.to_csv(summary_file)
     print(f"  ✓ Summary saved: {summary_file}")
+    print(f"    Note: NAV starts at 1000 (initial portfolio value)")
 
     # Save statistics
     stats_file = output_dir / f"backtest_stats_{timestamp}.csv"
