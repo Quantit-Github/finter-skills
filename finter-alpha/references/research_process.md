@@ -9,7 +9,6 @@ Systematic approach to developing and validating quantitative trading strategies
 3. **Strategy Development** - Implement alpha logic
 4. **Backtesting** - Evaluate historical performance
 5. **Validation** - Check for robustness and overfitting
-6. **Iteration** - Refine based on results
 
 ## 1. Hypothesis Formation
 
@@ -128,13 +127,8 @@ momentum_period = 21  # Standard monthly lookback
 ```python
 from finter.backtest import Simulator
 
-# Run with realistic costs
-simulator = Simulator(
-    market_type="kr_stock",
-    commission_rate=0.0025,  # 0.25%
-    slippage_rate=0.001,     # 0.1%
-    tax_rate=0.0023         # 0.23%
-)
+# Run backtest with default settings
+simulator = Simulator(market_type="kr_stock")
 
 result = simulator.run(position=positions)
 stats = result.statistics
@@ -255,30 +249,6 @@ print(f"Std Sharpe: {np.std(sharpes):.2f}")
 print(f"Min Sharpe: {np.min(sharpes):.2f}")
 ```
 
-#### 3. Transaction Cost Sensitivity
-
-```python
-# Test with varying costs
-cost_scenarios = [
-    {'commission': 0.001, 'slippage': 0.0005},  # Low cost
-    {'commission': 0.0025, 'slippage': 0.001},  # Base case
-    {'commission': 0.005, 'slippage': 0.002},   # High cost
-]
-
-for costs in cost_scenarios:
-    simulator = Simulator(
-        market_type="kr_stock",
-        commission_rate=costs['commission'],
-        slippage_rate=costs['slippage']
-    )
-    result = simulator.run(position=positions)
-    print(f"Costs: {costs}")
-    print(f"Sharpe: {result.statistics['Sharpe Ratio']:.2f}")
-```
-
-**Good**: Strategy profitable even with higher costs
-**Bad**: Performance disappears with realistic costs
-
 ### Hold-Out Testing
 
 Always keep a final test set untouched:
@@ -293,52 +263,16 @@ holdout_start, holdout_end = 20230101, 20241231
 # Never optimize using hold-out period!
 ```
 
-## 6. Iteration
-
-### When to Iterate
-
-**Good Reasons:**
-- Strategy has clear economic rationale but poor execution
-- Discovered data quality issues
-- Found better proxy for original hypothesis
-- Simplified overly complex strategy
-
-**Bad Reasons:**
-- "Let me try one more parameter combination"
-- "I'll add this indicator to boost Sharpe"
-- "This works in 2020, let me add conditions for other years"
-
-### Documentation
-
-Keep a research log:
-
-```markdown
-## Momentum Strategy v1.0
-**Date**: 2024-01-15
-**Hypothesis**: 20-day momentum predicts next-day returns
-**Results**: Sharpe 0.8, but high turnover
-**Issues**: Transaction costs too high
-**Next steps**: Add position smoothing
-
-## Momentum Strategy v1.1  
-**Date**: 2024-01-20
-**Changes**: Added 5-day rolling average to reduce turnover
-**Results**: Sharpe 1.2, turnover reduced 40%
-**Status**: Ready for production testing
-```
-
-## Final Checklist Before Production
+## Final Checklist Before Deployment
 
 - [ ] Economic rationale is clear and documented
 - [ ] No look-ahead bias (all `.shift(1)` in place)
 - [ ] Tested across multiple time periods
 - [ ] Robust to parameter changes
-- [ ] Profitable with realistic transaction costs
 - [ ] Hold-out test shows consistent performance
 - [ ] Code is clean and documented
 - [ ] Risk metrics are acceptable (max drawdown < 30%)
-- [ ] Turnover and capacity are reasonable
-- [ ] Research log is complete
+- [ ] Turnover is reasonable (not excessively high)
 
 ## Common Pitfalls
 
@@ -354,8 +288,8 @@ Testing many strategies on same data leads to false discoveries.
 ### 4. Curve Fitting
 Too many parameters = overfitting to noise.
 
-### 5. Ignoring Costs
-Strategy may be unprofitable after costs.
+### 5. Excessive Turnover
+Very high turnover may indicate unstable signals or overfitting.
 
 ### 6. Regime Dependence
 Working only in bull markets isn't robust.

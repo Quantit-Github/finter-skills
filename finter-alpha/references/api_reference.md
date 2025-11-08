@@ -1,147 +1,6 @@
 # Finter API Reference
 
-Quick reference for Finter data access and API methods.
-
-## Symbol Search
-
-Convert stock names/tickers to FINTER IDs for accessing specific stocks.
-
-### Why FINTER IDs?
-
-FINTER uses unique numeric symbol IDs (e.g., `12948`, `56789`) instead of common tickers like "AAPL" or "005930". These IDs are randomly assigned and ensure consistent data access across time, preventing symbol conflicts. **Always use `Symbol.search()` to find the actual FINTER IDs before accessing stock data.**
-
-### Basic Usage
-
-```python
-from finter.data import Symbol
-
-# Initialize Symbol search
-symbol = Symbol("kr_stock")
-
-# Search by company name or ticker
-results = symbol.search("삼성전자")
-finter_id = results.index[0]  # Get FINTER ID
-
-# View search results
-print(results)  # DataFrame with name, ticker, exchange
-```
-
-### Search Patterns
-
-```python
-# Korean stocks
-symbol = Symbol("kr_stock")
-samsung = symbol.search("삼성전자")      # By company name
-sk = symbol.search("SK하이닉스")        # By company name
-ticker = symbol.search("005930")        # By ticker code
-
-# US stocks
-us_symbol = Symbol("us_stock")
-apple = us_symbol.search("AAPL")        # By ticker
-tech = us_symbol.search("Apple")        # By company name
-```
-
-### Using FINTER IDs in Strategies
-
-**IMPORTANT**: Symbol search must be done **outside** the Alpha class. Find IDs first, then hardcode them in your strategy.
-
-```python
-# Step 1: Find FINTER IDs (run this BEFORE writing your Alpha class)
-from finter.data import Symbol
-
-symbol = Symbol("kr_stock")
-samsung_results = symbol.search("삼성전자")
-sk_results = symbol.search("SK하이닉스")
-naver_results = symbol.search("NAVER")
-
-print(f"Samsung ID: {samsung_results.index[0]}")    # e.g., 12948
-print(f"SK Hynix ID: {sk_results.index[0]}")        # e.g., 34521
-print(f"NAVER ID: {naver_results.index[0]}")        # e.g., 78932
-
-# Step 2: Copy the actual IDs and hardcode them in your Alpha class
-from finter import BaseAlpha
-from finter.data import ContentFactory
-
-class Alpha(BaseAlpha):
-    """
-    Strategy targeting specific stocks (Samsung, SK Hynix, NAVER).
-    IDs were found using Symbol.search() and hardcoded here.
-    """
-
-    def get(self, start: int, end: int) -> pd.DataFrame:
-        # Load data with buffer
-        cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
-
-        # Hardcoded FINTER IDs (found using Symbol.search() above)
-        # NOTE: These are example IDs - use actual IDs from Symbol.search()
-        target_ids = [
-            "12948",  # Samsung Electronics
-            "34521",  # SK Hynix
-            "78932"   # NAVER
-        ]
-
-        # Load data only for these stocks
-        close = cf.get_df("price_close")[target_ids]
-
-        # Apply strategy logic
-        momentum = close.pct_change(20)
-        rank = momentum.rank(axis=1, pct=True)
-
-        # Equal weight allocation, 1e8 == 100% of AUM
-        weights = (rank > 0).astype(float)
-        weights = weights.div(weights.sum(axis=1), axis=0) * 1e8
-
-        # CRITICAL: Always shift positions to avoid look-ahead bias
-        return weights.shift(1).loc[str(start):str(end)]
-```
-
-### Helper Function for Finding Multiple IDs
-
-Use this helper function **before** writing your Alpha class to find multiple IDs at once:
-
-```python
-from finter.data import Symbol
-
-def get_finter_ids(stock_names: list, universe: str = "kr_stock") -> list:
-    """
-    Convert list of stock names to FINTER IDs.
-    Run this BEFORE writing your Alpha class, then hardcode the IDs.
-
-    Parameters
-    ----------
-    stock_names : list
-        List of company names or ticker codes
-    universe : str
-        Market universe ("kr_stock", "us_stock", etc.)
-
-    Returns
-    -------
-    list
-        List of FINTER IDs to hardcode in your strategy
-    """
-    symbol = Symbol(universe)
-    ids = []
-
-    for name in stock_names:
-        results = symbol.search(name)
-        if not results.empty:
-            finter_id = results.index[0]
-            ids.append(finter_id)
-            print(f"{name}: {finter_id}")
-        else:
-            print(f"Warning: '{name}' not found")
-
-    return ids
-
-# Example: Find IDs before writing strategy
-target_ids = get_finter_ids(["삼성전자", "현대차", "LG에너지솔루션"])
-# Output (example - actual IDs will be different numeric values):
-# 삼성전자: 12948
-# 현대차: 23456
-# LG에너지솔루션: 89012
-
-# Now hardcode these actual IDs in your Alpha class
-```
+Quick reference for Finter data access and backtesting methods.
 
 ## ContentFactory
 
@@ -151,11 +10,12 @@ Load market data across FINTER universes.
 
 ```python
 from finter.data import ContentFactory
+from helpers import get_start_date
 
 # Basic usage
 cf = ContentFactory(
     universe="kr_stock",  # "kr_stock", "us_stock", "btcusdt_spot_binance"
-    start=20240101,        # YYYYMMDD format
+    start=get_start_date(20240101, buffer=365),
     end=20240201
 )
 ```
@@ -193,7 +53,7 @@ Prints available data categories. Returns `None`.
 cf.summary()
 # Output categories:
 # - Economic
-# - Event  
+# - Event
 # - Financial
 # - Index
 # - Market
@@ -245,22 +105,20 @@ ratio_items = cf.search("ratio")
 - `market_cap` - Market capitalization
 - `shares_outstanding` - Number of outstanding shares
 
-### Data Loading Best Practices
+### Best Practices
 
-#### 1. Load Extra Historical Data
+#### Load with Buffer
 
-Always load more data than needed for calculations:
+Always load more historical data than needed:
 
 ```python
-# ❌ Wrong - exactly the date range
-cf = ContentFactory("kr_stock", start, end)
+from helpers import get_start_date
 
 # ✓ Correct - load extra historical data
-cf = ContentFactory("kr_stock", start - 10000, end)
-# This gives buffer for calculations, then filter at the end
+cf = ContentFactory("kr_stock", get_start_date(start, buffer=365), end)
 ```
 
-#### 2. Handle Missing Data
+#### Handle Missing Data
 
 ```python
 # Check for missing values
@@ -276,21 +134,77 @@ valid_stocks = data.notna().sum() / len(data) >= threshold
 data_clean = data.loc[:, valid_stocks]
 ```
 
-#### 3. Date Range Filtering
+## Symbol Search
+
+Find FINTER IDs for specific stocks.
+
+### Correct Usage (Must instantiate first!)
 
 ```python
-# Load data
-cf = ContentFactory("kr_stock", 20200101 - 10000, 20241231)
-data = cf.get_df("price_close")
+from finter.data import Symbol
 
-# Calculate indicators
-momentum = data.pct_change(20)
+# ✓ CORRECT - Create instance first, then search
+symbol = Symbol("us_stock")  # Create instance with universe
+result = symbol.search("palantir")  # Returns DataFrame!
 
-# Filter to exact range at the end
-start_date = "20200101"
-end_date = "20241231"
-result = momentum.loc[start_date:end_date]
+# IMPORTANT: result is a DataFrame with FINTER IDs in the INDEX
+finter_id = result.index[0]  # Get FINTER ID from index
+print(f"FINTER ID: {finter_id}")
+
+# ❌ WRONG - This will not work!
+result = Symbol.search("palantir", universe="us_stock")  # NO!
 ```
+
+**Result Format:**
+- Returns: `pd.DataFrame` with stock information
+- FINTER ID location: `result.index` (NOT a column!)
+- Get first match: `result.index[0]`
+
+### Find Multiple Stock IDs
+
+```python
+from finter.data import Symbol
+
+# Korean stocks
+symbol = Symbol("kr_stock")
+samsung_id = symbol.search("삼성전자").index[0]
+sk_id = symbol.search("SK하이닉스").index[0]
+naver_id = symbol.search("NAVER").index[0]
+
+print(f"Samsung: {samsung_id}")
+print(f"SK Hynix: {sk_id}")
+print(f"NAVER: {naver_id}")
+
+# US stocks
+us_symbol = Symbol("us_stock")
+pltr_id = us_symbol.search("palantir").index[0]
+print(f"Palantir: {pltr_id}")
+```
+
+### Use in Alpha Strategy
+
+**IMPORTANT**: Find IDs first, then hardcode them.
+
+```python
+# Step 1: Find IDs (run this ONCE, outside Alpha class)
+from finter.data import Symbol
+
+symbol = Symbol("us_stock")
+pltr_id = symbol.search("palantir").index[0]
+nvda_id = symbol.search("nvidia").index[0]
+# Output: pltr_id = "12345", nvda_id = "67890"
+
+# Step 2: Hardcode IDs in your Alpha class
+class Alpha(BaseAlpha):
+    def get(self, start, end):
+        target_ids = ["12345", "67890"]  # Hardcoded from above
+        close = cf.get_df("price_close")[target_ids]
+        # ...
+```
+
+**Why FINTER IDs?** FINTER uses unique numeric IDs instead of tickers to prevent symbol conflicts over time.
+
+See `templates/examples/stock_selection.py` for complete example.
 
 ## Backtest Simulator
 
@@ -318,7 +232,7 @@ summary = result.summary
 # Korean stocks
 Simulator(market_type="kr_stock")
 
-# US stocks  
+# US stocks
 Simulator(market_type="us_stock")
 
 # Cryptocurrency
@@ -362,14 +276,15 @@ cumulative_pnl = summary['cumulative_pnl']  # Cumulative P&L
 
 Available in `result.statistics`:
 
-- `Total Return (%)` - Total portfolio return
-- `Annual Return (%)` - Annualized return
+- `Total Return (%)` - Total portfolio return (for entire backtest period)
 - `Sharpe Ratio` - Risk-adjusted return
 - `Max Drawdown (%)` - Maximum peak-to-trough decline
 - `Win Rate (%)` - Percentage of profitable days
 - `Profit Factor` - Gross profit / Gross loss
 - `Average Win (%)` - Average winning day return
 - `Average Loss (%)` - Average losing day return
+
+**IMPORTANT**: There is NO `Annual Return (%)` field! Use `Total Return (%)` instead.
 
 ### Position DataFrame Format
 
@@ -450,7 +365,7 @@ top_k = df.rank(axis=1, ascending=False) <= k
 
 ## Date Formatting
 
-Always use YYYYMMDD integer format for dates:
+Always use YYYYMMDD integer format:
 
 ```python
 # ✓ Correct formats
@@ -469,5 +384,6 @@ data.loc[date_str:date_str]
 
 ## See Also
 
-- `base_alpha_guide.md` - BaseAlpha framework
-- `alpha_examples.md` - Complete strategy examples
+- `framework.md` - BaseAlpha framework overview
+- `../templates/` - Ready-to-use strategy templates
+- `troubleshooting.md` - Common mistakes and solutions

@@ -77,7 +77,6 @@ def print_metrics(stats, title="Performance Metrics"):
     # Key metrics
     key_metrics = [
         "Total Return (%)",
-        "Annual Return (%)",
         "Sharpe Ratio",
         "Max Drawdown (%)",
         "Win Rate (%)",
@@ -263,18 +262,21 @@ def run_backtest(alpha_file, start_date, end_date, universe):
     print_section("Saving Results")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    # Save to current working directory
+    output_dir = Path.cwd()
+
     # Save summary
-    summary_file = f"backtest_summary_{timestamp}.csv"
+    summary_file = output_dir / f"backtest_summary_{timestamp}.csv"
     result.summary.to_csv(summary_file)
     print(f"  ✓ Summary saved: {summary_file}")
 
     # Save statistics
-    stats_file = f"backtest_stats_{timestamp}.csv"
+    stats_file = output_dir / f"backtest_stats_{timestamp}.csv"
     result.statistics.to_csv(stats_file)
     print(f"  ✓ Statistics saved: {stats_file}")
 
     # Save positions
-    positions_file = f"positions_{timestamp}.csv"
+    positions_file = output_dir / f"positions_{timestamp}.csv"
     positions.to_csv(positions_file)
     print(f"  ✓ Positions saved: {positions_file}")
 

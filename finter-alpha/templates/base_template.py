@@ -8,21 +8,16 @@ Copy this template and implement your strategy logic in the get() method.
 import pandas as pd
 from finter import BaseAlpha
 from finter.data import ContentFactory
+from datetime import datetime, timedelta
 
 
 def get_start_date(start: int, buffer: int = 365) -> int:
     """
-    Get start date with buffer days
-
-    Because we need to load data with buffer for calculations
+    Get start date with buffer days for data loading.
     Rule of thumb: buffer = 2x longest lookback + 250 days
     """
-    from datetime import datetime, timedelta
-
     return int(
-        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime(
-            "%Y%m%d"
-        )
+        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime("%Y%m%d")
     )
 
 
