@@ -339,7 +339,7 @@ if __name__ == "__main__":
     print(f"{'Metric':<20} {'MVO':>15} {'Equal Weight':>15} {'Difference':>15}")
     print("-" * 60)
 
-    metrics = ['Total Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Win Rate (%)']
+    metrics = ['Total Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Hit Ratio (%)']
     for metric in metrics:
         mv_val = mv_result.statistics[metric]
         eq_val = eq_result.statistics[metric]

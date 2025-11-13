@@ -239,17 +239,6 @@ Simulator(market_type="us_stock")
 Simulator(market_type="btcusdt_spot_binance")
 ```
 
-### Transaction Costs
-
-```python
-simulator = Simulator(
-    market_type="kr_stock",
-    commission_rate=0.0025,    # 0.25% commission
-    slippage_rate=0.001,       # 0.1% slippage
-    tax_rate=0.0023           # 0.23% transaction tax
-)
-```
-
 ### Result Analysis
 
 ```python
@@ -261,7 +250,7 @@ stats = result.statistics
 print(f"Total Return: {stats['Total Return (%)']:.2f}%")
 print(f"Sharpe Ratio: {stats['Sharpe Ratio']:.2f}")
 print(f"Max Drawdown: {stats['Max Drawdown (%)']:.2f}%")
-print(f"Win Rate: {stats['Win Rate (%)']:.2f}%")
+print(f"Hit Ratio: {stats['Hit Ratio (%)']:.2f}%")
 
 # Daily data (pd.DataFrame)
 summary = result.summary
@@ -280,13 +269,24 @@ cumulative_pnl = summary['cumulative_pnl']  # Cumulative P&L
 
 Available in `result.statistics`:
 
-- `Total Return (%)` - Total portfolio return (for entire backtest period)
-- `Sharpe Ratio` - Risk-adjusted return
-- `Max Drawdown (%)` - Maximum peak-to-trough decline
-- `Win Rate (%)` - Percentage of profitable days
-- `Profit Factor` - Gross profit / Gross loss
-- `Average Win (%)` - Average winning day return
-- `Average Loss (%)` - Average losing day return
+- `Total Return (%)`: Total portfolio return for the entire backtest period.
+- `CAGR (%)`: Compound Annual Growth Rate (mean annualized return).
+- `Volatility (%)`: Annualized standard deviation of returns.
+- `Hit Ratio (%)`: Proportion of profitable days.
+- `Sharpe Ratio`: Annualized risk-adjusted return.
+- `Sortino Ratio`: Downside risk-adjusted return.
+- `Max Drawdown (%)`: Largest peak-to-trough loss during the backtest.
+- `Mean Drawdown (%)`: Average drawdown size.
+- `Calmar Ratio`: Total return divided by absolute maximum drawdown.
+- `Avg Tuw`: Average time underwater (days with drawdown).
+- `Max Tuw`: Maximum time underwater during the backtest.
+- `Skewness`: Skewness of daily returns distribution.
+- `Kurtosis`: Kurtosis of daily returns distribution.
+- `VaR 95% (%)`: 95% Value-at-Risk (downside risk).
+- `VaR 99% (%)`: 99% Value-at-Risk (larger downside risk).
+- `Positive HHI`: Herfindahl-Hirschman Index for positive returns concentration.
+- `Negative HHI`: Herfindahl-Hirschman Index for negative returns concentration.
+- `K Ratio`: Slope of equity curve divided by its standard error (performance persistence).
 
 **IMPORTANT**: There is NO `Annual Return (%)` field! Use `Total Return (%)` instead.
 

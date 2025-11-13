@@ -122,7 +122,7 @@ stats = result.statistics
 print(f"Total Return: {stats['Total Return (%)']:.2f}%")
 print(f"Sharpe Ratio: {stats['Sharpe Ratio']:.2f}")
 print(f"Max Drawdown: {stats['Max Drawdown (%)']:.2f}%")
-print(f"Win Rate: {stats['Win Rate (%)']:.2f}%")
+print(f"Hit Ratio: {stats['Hit Ratio (%)']:.2f}%")
 
 # Step 4: Visualize NAV curve
 result.summary['nav'].plot(title='Portfolio NAV (starts at 1000)', figsize=(12,6))
@@ -139,12 +139,12 @@ result.statistics:  # Dict with performance metrics
     'Total Return (%)'
     'Sharpe Ratio'
     'Max Drawdown (%)'
-    'Win Rate (%)'
+    ...
 
 result.summary:  # DataFrame with time series
     'nav'           # Net Asset Value (starts at 1000)
     'daily_return'  # Daily returns
-    'position_value' # Position values
+    ...
 ```
 
 ---
@@ -188,7 +188,7 @@ print("=" * 60)
 print(f"{'Metric':<20} {'Optimized':>15} {'Equal Weight':>15} {'Difference':>15}")
 print("-" * 60)
 
-metrics = ['Total Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Win Rate (%)']
+metrics = ['Total Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Hit Ratio (%)']
 for metric in metrics:
     opt_val = optimized_result.statistics[metric]
     base_val = baseline_result.statistics[metric]
@@ -272,15 +272,15 @@ comparison = pd.DataFrame({
         optimized_result.statistics['Total Return (%)'],
         optimized_result.statistics['Sharpe Ratio'],
         -optimized_result.statistics['Max Drawdown (%)'],  # Negative for visual
-        optimized_result.statistics['Win Rate (%)']
+        optimized_result.statistics['Hit Ratio (%)']
     ],
     'Equal Weight': [
         baseline_result.statistics['Total Return (%)'],
         baseline_result.statistics['Sharpe Ratio'],
         -baseline_result.statistics['Max Drawdown (%)'],
-        baseline_result.statistics['Win Rate (%)']
+        baseline_result.statistics['Hit Ratio (%)']
     ]
-}, index=['Total Return (%)', 'Sharpe Ratio', 'Max DD (%) [inverted]', 'Win Rate (%)'])
+}, index=['Total Return (%)', 'Sharpe Ratio', 'Max DD (%) [inverted]', 'Hit Ratio (%)'])
 
 comparison.plot(kind='bar', figsize=(10, 6), rot=0)
 plt.title('Performance Metrics Comparison')
@@ -359,7 +359,7 @@ base_result = simulator.run(position=EqualWeightBaseline().get(20240101, 2024123
 
 # Compare
 print("Performance Comparison:")
-for metric in ['Total Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Win Rate (%)']:
+for metric in ['Total Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Hit Ratio (%)']:
     print(f"{metric}: {opt_result.statistics[metric]:.2f} vs {base_result.statistics[metric]:.2f}")
 
 # Visualize

@@ -259,7 +259,7 @@ if __name__ == "__main__":
     print(f"{'Metric':<20} {'Risk Parity':>15} {'Equal Weight':>15} {'Difference':>15}")
     print("-" * 60)
 
-    metrics = ['Total Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Win Rate (%)']
+    metrics = ['Total Return (%)', 'Sharpe Ratio', 'Max Drawdown (%)', 'Hit Ratio (%)']
     for metric in metrics:
         rp_val = rp_result.statistics[metric]
         eq_val = eq_result.statistics[metric]

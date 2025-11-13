@@ -165,7 +165,7 @@ if __name__ == "__main__":
     print(f"  Total Return: {stats['Total Return (%)']:.2f}%")
     print(f"  Sharpe Ratio: {stats['Sharpe Ratio']:.2f}")
     print(f"  Max Drawdown: {stats['Max Drawdown (%)']:.2f}%")
-    print(f"  Win Rate: {stats['Win Rate (%)']:.2f}%")
+    print(f"  Hit Ratio: {stats['Hit Ratio (%)']:.2f}%")
 
     # Visualize backtest results
     fig, axes = plt.subplots(2, 1, figsize=(12, 10))

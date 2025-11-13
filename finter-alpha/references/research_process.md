@@ -142,13 +142,13 @@ stats = result.statistics
 - Total Return (compare to benchmark)
 
 **Secondary Metrics:**
-- Win Rate (> 50% desirable but not required)
+- Hit Ratio (> 50% desirable but not required)
 - Profit Factor (> 1.5 good)
 - Average Win vs Average Loss ratio
 
 **Warning Signs:**
 - Too good to be true (Sharpe > 3.0)
-- Very high win rate with low Sharpe (lots of small wins, huge losses)
+- Very high hit ratio with low Sharpe (lots of small wins, huge losses)
 - Drawdowns lasting > 2 years
 - Strategy works only in specific periods
 

@@ -295,7 +295,7 @@ stats = result.statistics
 
 # Sanity checks
 assert stats['Sharpe Ratio'] < 5, "Sharpe too high - check for look-ahead bias!"
-assert stats['Win Rate (%)'] < 90, "Win rate too high - suspicious!"
+assert stats['Hit Ratio (%)'] < 90, "Hit ratio too high - suspicious!"
 assert stats['Max Drawdown (%)'] > 5, "No drawdown - likely data issue!"
 
 print("✓ Sanity checks passed")

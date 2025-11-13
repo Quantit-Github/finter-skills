@@ -105,7 +105,7 @@ stats = result.statistics
 print(f"Total Return: {stats['Total Return (%)']:.2f}%")
 print(f"Sharpe Ratio: {stats['Sharpe Ratio']:.2f}")
 print(f"Max Drawdown: {stats['Max Drawdown (%)']:.2f}%")
-print(f"Win Rate: {stats['Win Rate (%)']:.2f}%")
+print(f"Hit Ratio: {stats['Hit Ratio (%)']:.2f}%")
 
 # Step 4: Visualize NAV curve
 result.summary['nav'].plot(title='NAV (starts at 1000)', figsize=(12,6))
@@ -145,6 +145,25 @@ from finter.data import ContentFactory
 from finter.backtest import Simulator
 import pandas as pd
 ```
+
+**Data discovery (find item names):**
+```python
+# ✅ CORRECT - Search BEFORE using
+results = cf.search("price")  # Find available items
+print(results)  # ['price_close', 'price_open', 'price_high', ...]
+close = cf.get_df("price_close")  # Use exact name from search!
+
+# If search returns empty, check categories
+cf.summary()  # Shows: Economic, Event, Financial, Market, ...
+cf.search("ratio")  # Try related keywords
+cf.search("per")    # Try abbreviations
+
+# ❌ WRONG - Guessing item names
+close = cf.get_df("closing_price")  # KeyError! Never guess!
+per = cf.get_df("price_earnings")   # ALWAYS search() first!
+```
+
+**CRITICAL: Always search() BEFORE get_df(). NO guessing item names!**
 
 **ContentFactory usage (CRITICAL):**
 ```python
