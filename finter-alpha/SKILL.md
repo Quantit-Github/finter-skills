@@ -86,6 +86,7 @@ class Alpha(BaseAlpha):
 - **Momentum/Technical**: `examples/technical_analysis.py`
 - **Multi-factor**: `examples/multi_factor.py`
 - **Stock Selection**: `examples/stock_selection.py`
+- **Bitcoin/Crypto (BETA)**: `examples/crypto_bitcoin.py`
 
 **IMPORTANT**: Templates show COMPLETE working code. Copy and modify, don't write from scratch!
 
@@ -121,11 +122,12 @@ See `references/api_reference.md` for complete Simulator API.
 
 **Read these BEFORE coding:**
 1. **`references/framework.md`** - BaseAlpha requirements (READ THIS FIRST!)
-2. **`references/api_reference.md`** - ContentFactory, Simulator, data access
-3. **`references/troubleshooting.md`** - Common mistakes and fixes
+2. **`references/universe_reference.md`** - Available universes and data items (includes Crypto BETA)
+3. **`references/api_reference.md`** - ContentFactory, Simulator API
+4. **`references/troubleshooting.md`** - Common mistakes and fixes
 
 **Reference during coding:**
-- **`templates/examples/`** - 3 complete strategy examples
+- **`templates/examples/`** - 4 complete strategy examples (stocks + crypto)
 - **`templates/patterns/`** - Reusable building blocks
 - **`references/research_process.md`** - Validation and testing
 
@@ -133,8 +135,10 @@ See `references/api_reference.md` for complete Simulator API.
 - Technical/momentum strategy → `examples/technical_analysis.py`
 - Combine multiple factors → `examples/multi_factor.py`
 - Specific stocks only → `examples/stock_selection.py`
+- Bitcoin/crypto strategy (BETA) → `examples/crypto_bitcoin.py`
 - Equal weighting → `patterns/equal_weight.py`
 - Top-K selection → `patterns/top_k_selection.py`
+- Rolling rebalance → `patterns/rolling_rebalance.py`
 
 ## ⚡ Quick Reference
 
@@ -165,6 +169,14 @@ per = cf.get_df("price_earnings")   # ALWAYS search() first!
 
 **CRITICAL: Always search() BEFORE get_df(). NO guessing item names!**
 
+**⚠️ Crypto exception:**
+```python
+# cf.search() does NOT work for 'raw' universe
+cf = ContentFactory('raw', 20180101, 20240101)
+cf.search("btcusdt")  # Returns empty! Must use exact names from docs
+btc_price = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
+```
+
 **ContentFactory usage (CRITICAL):**
 ```python
 # ✅ CORRECT - ALL parameters in constructor
@@ -191,5 +203,9 @@ result = symbol.search("palantir")  # Returns DataFrame!
 finter_id = result.index[0]  # Get FINTER ID from index
 print(f"FINTER ID: {finter_id}")
 ```
+
+**Universe-specific notes:**
+- **Stock universes** (kr_stock, us_stock): `cf.search()` works, use it!
+- **Crypto** (raw): `cf.search()` does NOT work, use exact names from `universe_reference.md`
 
 **DO NOT SKIP** reading `references/framework.md` - it has critical rules!

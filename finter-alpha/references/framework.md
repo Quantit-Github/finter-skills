@@ -177,27 +177,26 @@ cf = ContentFactory(
     end=end
 )
 
-# Load data
+# Load data (always search first!)
 close = cf.get_df("price_close")
-volume = cf.get_df("volume")
-pbr = cf.get_df("pbr")
+
+# Find other items specific to your universe
+# cf.search("volume")  # Discover volume items
+# cf.search("book")    # Discover valuation items
 ```
 
-### Common Data Items
+### Data Discovery
+
+Item names vary by universe. **Always use `cf.search()` first!**
 
 ```python
-# Price data
-close = cf.get_df("price_close")
-open_price = cf.get_df("price_open")
+# Example: finding volume data
+results = cf.search("volume")
+print(results)  # ['volume_sum', ...]
 
-# Volume and market cap
-volume = cf.get_df("volume")
-market_cap = cf.get_df("market_cap")
+volume = cf.get_df("volume_sum")  # Use exact name from search
 
-# Financial ratios
-per = cf.get_df("per")   # Price-to-Earnings
-pbr = cf.get_df("pbr")   # Price-to-Book
-roe = cf.get_df("roe")   # Return on Equity
+# For complete data reference, see references/universe_reference.md
 ```
 
 ## Complete Minimal Example

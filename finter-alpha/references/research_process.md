@@ -56,7 +56,10 @@ available_items = cf.search("your_term")
 
 # 2. Load key data
 price = cf.get_df("price_close")
-volume = cf.get_df("volume")
+
+# Search for volume data (name varies by universe)
+volume_items = cf.search("volume")
+print(f"Volume items: {volume_items[:3]}")  # Check first 3
 
 # 3. Check data quality
 print(f"Date range: {price.index[0]} to {price.index[-1]}")
@@ -66,7 +69,6 @@ print(f"Missing ratio: {price.isnull().sum().sum() / price.size:.2%}")
 
 # 4. Visualize distributions
 price.pct_change().describe()
-volume.describe()
 ```
 
 ### Key Metrics to Check

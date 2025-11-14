@@ -221,7 +221,7 @@ def get(self, start, end):
     high = cf.get_df("price_high")
     low = cf.get_df("price_low")
     close = cf.get_df("price_close")
-    volume = cf.get_df("volume")
+    # (Loading unnecessary data slows down strategy)
 
     momentum = close.pct_change(20)
 

@@ -67,9 +67,11 @@ class Alpha(BaseAlpha):
         cf = ContentFactory("kr_stock", get_start_date(start), end)
 
         # Load necessary data
+        # Note: Always use cf.search() to find exact item names
+        # Example: cf.search('volume'), cf.search('market')
         close_price = cf.get_df("price_close")
-        # volume = cf.get_df("volume")
-        # market_cap = cf.get_df("market_cap")
+        # volume = cf.get_df("volume_sum")  # Use cf.search('volume') to find
+        # book_to_market = cf.get_df("book-to-market")  # Value factor
 
         # ==========================================
         # IMPLEMENT YOUR STRATEGY LOGIC HERE

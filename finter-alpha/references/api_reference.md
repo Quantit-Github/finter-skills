@@ -14,7 +14,7 @@ from helpers import get_start_date
 
 # Basic usage
 cf = ContentFactory(
-    universe="kr_stock",  # "kr_stock", "us_stock", "btcusdt_spot_binance"
+    universe="kr_stock",  # See universe_reference.md for all available universes
     start=get_start_date(20240101, buffer=365),
     end=20240201
 )
@@ -27,20 +27,16 @@ cf = ContentFactory(
 Returns DataFrame with dates as index, stocks as columns.
 
 ```python
-# Price data
+# Basic price data (works across all universes)
 close = cf.get_df("price_close")
 open_price = cf.get_df("price_open")
 high = cf.get_df("price_high")
 low = cf.get_df("price_low")
 
-# Volume and market cap
-volume = cf.get_df("volume")
-market_cap = cf.get_df("market_cap")
-
-# Financial ratios
-per = cf.get_df("per")   # Price-to-Earnings Ratio
-pbr = cf.get_df("pbr")   # Price-to-Book Ratio
-roe = cf.get_df("roe")   # Return on Equity
+# Always search first - item names vary by universe!
+# See universe_reference.md for available items
+results = cf.search("volume")  # Find volume-related items
+results = cf.search("book")    # Find value factors
 ```
 
 **Returns:** `pd.DataFrame` with shape (dates, stocks)
@@ -79,31 +75,7 @@ ratio_items = cf.search("ratio")
 
 **Returns:** List of matching item names
 
-### Common Data Items
-
-#### Price Data
-- `price_close` - Daily closing price
-- `price_open` - Daily opening price
-- `price_high` - Daily high price
-- `price_low` - Daily low price
-- `price_adj_close` - Adjusted closing price (split/dividend adjusted)
-
-#### Volume and Trading
-- `volume` - Daily trading volume
-- `trading_value` - Total trading value
-- `trading_volume` - Number of shares traded
-
-#### Financial Ratios
-- `per` - Price-to-Earnings Ratio
-- `pbr` - Price-to-Book Ratio
-- `pcr` - Price-to-Cashflow Ratio
-- `psr` - Price-to-Sales Ratio
-- `roe` - Return on Equity
-- `roa` - Return on Assets
-
-#### Market Metrics
-- `market_cap` - Market capitalization
-- `shares_outstanding` - Number of outstanding shares
+**For available data items by universe, see `universe_reference.md`.**
 
 ### Best Practices
 
@@ -228,15 +200,13 @@ summary = result.summary
 
 ### Market Types
 
+Supported market types: `kr_stock`, `us_stock`, `btcusdt_spot_binance`, and more.
+
+**See `universe_reference.md` for complete list and universe-specific details.**
+
 ```python
-# Korean stocks
-Simulator(market_type="kr_stock")
-
-# US stocks
-Simulator(market_type="us_stock")
-
-# Cryptocurrency
-Simulator(market_type="btcusdt_spot_binance")
+# Example
+simulator = Simulator(market_type="kr_stock")
 ```
 
 ### Result Analysis

@@ -5,10 +5,15 @@ Combine momentum, value, and quality factors with configurable weights.
 
 Strategy Logic:
 1. Calculate momentum factor (price change)
-2. Calculate value factor (inverse PBR)
-3. Calculate quality factor (ROE)
+2. Calculate value factor (book-to-market ratio)
+3. Calculate quality factor (ROE change)
 4. Combine factors with weights
 5. Select top N stocks by combined score
+
+Important Notes:
+- Data item names vary by universe (kr_stock example below)
+- Always use cf.search() to find exact item names
+- See references/universe_reference.md for available data
 
 Typical Parameters:
 - momentum_weight: [0.3, 0.4, 0.5]
@@ -18,10 +23,11 @@ Typical Parameters:
 - top_stocks: [20, 30, 50]
 """
 
+from datetime import datetime, timedelta
+
+import pandas as pd
 from finter import BaseAlpha
 from finter.data import ContentFactory
-import pandas as pd
-from datetime import datetime, timedelta
 
 
 def get_start_date(start: int, buffer: int = 365) -> int:
@@ -30,7 +36,9 @@ def get_start_date(start: int, buffer: int = 365) -> int:
     Rule of thumb: buffer = 2x longest lookback + 250 days
     """
     return int(
-        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime("%Y%m%d")
+        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime(
+            "%Y%m%d"
+        )
     )
 
 
@@ -78,18 +86,20 @@ class Alpha(BaseAlpha):
         )
 
         # Load data
+        # Note: Use cf.search() to find exact item names for your universe
+        # Example: cf.search('book'), cf.search('roe')
         close = cf.get_df("price_close")
-        pbr = cf.get_df("pbr")
-        roe = cf.get_df("roe")
+        book_to_market = cf.get_df("book-to-market")  # Value factor (lower = expensive)
+        roe_change = cf.get_df("kr-change_roe")  # Quality factor (ROE improvement)
 
         # Factor 1: Momentum (price change)
         momentum_score = close.pct_change(momentum_period).rank(axis=1, pct=True)
 
-        # Factor 2: Value (inverse PBR)
-        value_score = (1 / pbr).rank(axis=1, pct=True)
+        # Factor 2: Value (book-to-market, higher = cheaper = better)
+        value_score = book_to_market.rank(axis=1, pct=True)
 
-        # Factor 3: Quality (ROE)
-        quality_score = roe.rank(axis=1, pct=True)
+        # Factor 3: Quality (ROE change, higher = better)
+        quality_score = roe_change.rank(axis=1, pct=True)
 
         # Combine factors with weights
         combined_score = (
