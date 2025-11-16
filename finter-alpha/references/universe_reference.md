@@ -1,304 +1,213 @@
 # Universe Reference
 
-Complete guide to data universes supported by Finter.
+Special cases and exceptions for Finter data universes.
 
 ## Overview
 
-Finter organizes financial data into **universes** - distinct market domains with different characteristics. Each universe has:
+All universes use the **same framework** (BaseAlpha, ContentFactory, Simulator). For quick comparison, see SKILL.md.
 
-- **Time period**: Historical data availability
-- **Resolution**: Data frequency (daily, 8H, etc.)
-- **Data items**: Available price, volume, fundamental data
-- **Asset coverage**: Number and type of tradable assets
+**This document covers ONLY special cases and exceptions.**
 
-**Supported Markets** (from `finter.backtest.config.config.AVAILABLE_MARKETS`):
-- `kr_stock` - Korean stocks
-- `us_stock` - US stocks
-- `us_etf` - US ETFs
-- `us_future` - US futures
-- `id_stock` - Indonesian stocks
-- `id_bond` - Indonesian bonds
-- `id_fund` - Indonesian funds
-- `vn_stock` - Vietnamese stocks
-- `btcusdt_spot_binance` - Bitcoin (BETA)
+**General rule**: Use `cf.search()` and `cf.summary()` to explore data - don't memorize item names!
 
-**This document focuses on the most commonly used universes: kr_stock, us_stock, and crypto.**
+## Standard Usage (Most Universes)
 
-## Korean Stocks (kr_stock)
-
-### Basic Information
-- **Universe name**: `"kr_stock"`
-- **Market type** (Simulator): `"kr_stock"`
-- **Period**: 2000-01-01 ~ present
-- **Resolution**: Daily (1D)
-- **Asset count**: ~2,500 stocks (KOSPI + KOSDAQ)
-
-### Available Data Categories
-
-Content Model Summary:
-- **Economic**: 1 subcategory, 4 items
-- **Event**: 3 subcategories, 16 items
-- **Financial**: 2 subcategories, 288 items
-- **Index**: 1 subcategory, 68 items
-- **Market**: 7 subcategories, 102 items
-- **Quantitative**: 3 subcategories, 708 items
-- **Unstructured**: 12 subcategories, 162 items
-
-**Common starting points:**
-- Price: `price_close`, `price_open`, `price_high`, `price_low`
-- Valuation: `earnings-to-price`, `book-to-market`, `cashflow-to-price`
-- Volume: `volume_sum`, `dollar-trading-volume`
-
-**Discovery is key**: Use `cf.search('keyword')` to find specific data items. There are 1000+ items available.
-
-```python
-# Example searches
-cf.search('price')      # Find price-related items
-cf.search('book')       # Find book value items
-cf.search('earnings')   # Find earnings-related items
-cf.summary()            # View all categories
-```
-
-### Example Usage
+Works for: `kr_stock`, `us_stock`, `us_etf`, `id_stock`
 
 ```python
 from finter.data import ContentFactory
-from helpers import get_start_date
 
-# Load Korean stock data
-cf = ContentFactory("kr_stock", get_start_date(20240101, buffer=365), 20241231)
+# 1. Initialize
+cf = ContentFactory("kr_stock", 20230101, 20241231)
+
+# 2. Explore (DON'T SKIP THIS!)
+cf.summary()  # View categories
+results = cf.search("price")  # Find items
+
+# 3. Load data
 close = cf.get_df("price_close")
-
-# Explore available data (search first!)
-results = cf.search("earnings")
-print(f"Found {len(results)} earnings-related items")
-
-# Explore data
-print(f"Stocks: {len(close.columns)}")
-print(f"Date range: {close.index[0]} to {close.index[-1]}")
 ```
 
-**For complete strategy examples with backtesting, see `../templates/examples/`.**
+**Minor differences:**
+- `id_stock`: Use `volume_sum` instead of `trading_volume`
+- `us_etf`: Market data only (no fundamentals)
 
-## US Stocks (us_stock)
+**Symbol search** works for all universes - use `Symbol(universe).search(ticker)` to find FINTER IDs.
 
-### Basic Information
-- **Universe name**: `"us_stock"`
-- **Market type** (Simulator): `"us_stock"`
-- **Period**: 1990-01-01 ~ present
-- **Resolution**: Daily (1D)
-- **Asset count**: ~8,000 stocks (NYSE + NASDAQ + others)
+## Special Case 1: Vietnamese Stocks (vn_stock)
 
-### Available Data Categories
+### PascalCase Naming Convention
 
-Content Model Summary:
-- **Economic**: 1 subcategory, 123 items
-- **Financial**: 2 subcategories, 931 items
-- **Market**: 3 subcategories, 21 items
-- **Quantitative**: 2 subcategories, 262 items
-- **Unstructured**: 5 subcategories, 72 items
-
-**Common starting points:**
-- Price: `price_close`, `price_open`, `price_high`, `price_low`
-- Volume: `trading_volume`
-
-**Discovery is key**: Use `cf.search('keyword')` to find specific data items. There are 1000+ items available.
-
-```python
-# Example searches
-cf.search('price')      # Find price-related items
-cf.search('volume')     # Find volume-related items
-cf.summary()            # View all categories
-```
-
-### Example Usage
+⚠️ **vn_stock uses PascalCase**, unlike all other universes:
 
 ```python
 from finter.data import ContentFactory
-from helpers import get_start_date
 
-# Load US stock data
-cf = ContentFactory("us_stock", get_start_date(20240101, buffer=365), 20241231)
-close = cf.get_df("price_close")
-trading_volume = cf.get_df("trading_volume")  # Note: different from kr_stock
+cf = ContentFactory("vn_stock", 20230101, 20241231)
 
-# Explore data
-print(f"Stocks: {len(close.columns)}")
-print(f"Date range: {close.index[0]} to {close.index[-1]}")
+# ⚠️ Use PascalCase names
+close = cf.get_df("ClosePrice")      # NOT price_close
+open_price = cf.get_df("OpenPrice")  # NOT price_open
+high = cf.get_df("HighestPrice")     # NOT price_high
+low = cf.get_df("LowestPrice")       # NOT price_low
+
+# cf.search() still works!
+price_items = cf.search("price")
+print(price_items)  # ['AveragePrice', 'ClosePrice', 'HighestPrice', ...]
 ```
 
-**For complete strategy examples with backtesting, see `../templates/examples/`.**
+**Why PascalCase?** Different data provider convention. Always `cf.search()` first!
 
-## Cryptocurrency (BETA)
+## Special Case 2: Cryptocurrency (BETA)
 
 ### ⚠️ Beta Limitations
 
-**Cryptocurrency support is currently in BETA with significant limitations:**
+Crypto support has **major limitations**:
+- **Single asset only**: Bitcoin (BTCUSDT)
+- **Single timeframe**: 8-hour candles only
+- **No cf.search()**: Must use exact item names from documentation
+- **Different universe names**: `'raw'` for ContentFactory, `'btcusdt_spot_binance'` for Simulator
 
-- **Single asset only**: Bitcoin (BTCUSDT) only
-- **Single timeframe**: 8-hour (8H) candles only
-- **Limited history**: Data from 2018-01-01 onwards
-- **No multi-asset portfolios**: Cannot combine multiple cryptocurrencies
-- **Raw universe access**: Use `'raw'` universe (not standard universe name)
+### Critical Difference: No cf.search()
 
-**More cryptocurrencies, timeframes, and features will be added in future updates.**
-
-### Basic Information
-- **Universe name**: `"raw"` (special universe for crypto beta)
-- **Market type** (Simulator): `"btcusdt_spot_binance"`
-- **Period**: 2018-01-01 ~ present
-- **Resolution**: 8-hour (8H) candles
-- **Asset count**: 1 (Bitcoin only)
-
-### Available Data Items
-
-**Currently available:**
-- `content.binance.api.price_volume.btcusdt-spot-price_close.8H` - Bitcoin closing price (8H candles)
-
-**Note**:
-- Item names use full content paths (longer than stock universes)
-- `cf.search()` is not supported for raw universe
-- Additional data items may require specific permissions
-
-### Example Usage
+Unlike all other universes, **cf.search() does NOT work** for crypto:
 
 ```python
 from finter.data import ContentFactory
 
-# Load Bitcoin data (use 'raw' universe)
-cf = ContentFactory('raw', 20180101, 20251114)
+cf = ContentFactory('raw', 20180101, 20241231)
+
+# ❌ Does NOT work!
+cf.search("btcusdt")  # Returns empty list!
+cf.search("price")    # Returns empty list!
+
+# ✅ Must use exact item names
+btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
+btc_volume = cf.get_df('content.binance.api.price_volume.btcusdt-spot-volume.8H')
+```
+
+**Available items** (hardcoded):
+- `content.binance.api.price_volume.btcusdt-spot-price_close.8H` - BTC closing price
+- `content.binance.api.price_volume.btcusdt-spot-volume.8H` - BTC trading volume
+
+### Universe Name Confusion
+
+⚠️ **Different names for different contexts:**
+
+```python
+from finter.data import ContentFactory
+from finter.backtest import Simulator
+
+# ContentFactory: Use 'raw'
+cf = ContentFactory('raw', 20180101, 20241231)
 btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
 
-# Explore data
-print(btc_close.head())
-print(f"Data shape: {btc_close.shape}")
-print(f"Date range: {btc_close.index[0]} to {btc_close.index[-1]}")
+# Simulator: Use 'btcusdt_spot_binance'
+simulator = Simulator(market_type="btcusdt_spot_binance")
+result = simulator.run(position=positions)
 ```
 
-**For complete strategy example with backtesting, see `../templates/examples/crypto_bitcoin.py`.**
+**Why different?**
+- `'raw'` = generic universe for non-standard data
+- `'btcusdt_spot_binance'` = specific market type for simulation
 
-### Important Differences from Stock Universes
+### Time Resolution: 8H Candles
 
-**1. Universe name**: Use `'raw'` instead of asset-specific name
+Unlike daily resolution for stocks, crypto uses **8-hour candles**:
 
-**2. Data item names**: Full content paths (longer names)
 ```python
-# Stock universes (short names)
-close = cf.get_df("price_close")
+# Time conversions
+# 1 period = 8 hours
+# 3 periods = 24 hours (1 day)
+# 21 periods = 7 days (1 week)
+# 126 periods = 42 days (~6 weeks)
 
-# Crypto (full content paths)
-btc = cf.get_df("content.binance.api.price_volume.btcusdt-spot-price_close.8H")
+# Example: 1-week momentum
+momentum = btc_close.pct_change(21)  # 21 periods = 7 days
 ```
 
-**3. No search support**: `cf.search()` does not work for raw universe
+### Single Asset Positions
+
+No cross-sectional operations - just binary in/out:
+
 ```python
-# Stock universes
-cf.search('price')  # Works - returns list of items
+# Simple signal: buy if positive momentum
+signal = btc_close.pct_change(21) > 0
 
-# Crypto
-cf.search('btcusdt')  # Does not work - returns empty list
+# Positions: 1e8 (all in) or 0 (out)
+positions = signal.astype(float) * 1e8  # Single column DataFrame
 ```
 
-**4. Single asset**: Positions are just `1e8` (all in) or `0` (out)
+### Complete Crypto Example
+
 ```python
-# No cross-sectional operations like stocks
-positions = signal * 1e8  # Single column DataFrame
+from finter import BaseAlpha
+from finter.data import ContentFactory
+from finter.backtest import Simulator
+
+class Alpha(BaseAlpha):
+    def get(self, start: int, end: int, **kwargs):
+        # ⚠️ Use 'raw' universe
+        cf = ContentFactory('raw', start - 10000, end)
+
+        # ⚠️ Use exact item name (cf.search() doesn't work!)
+        btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
+
+        # 21 periods = 7 days (8H candles)
+        momentum = btc_close.pct_change(21)
+        signal = momentum > 0
+
+        # Single asset: 1e8 or 0
+        positions = signal.astype(float) * 1e8
+
+        return positions.shift(1).loc[str(start):str(end)]
+
+# Backtest
+alpha = Alpha()
+positions = alpha.get(20240101, 20241231)
+
+# ⚠️ Use 'btcusdt_spot_binance' for Simulator
+simulator = Simulator(market_type="btcusdt_spot_binance")
+result = simulator.run(position=positions)
 ```
 
-**5. Time resolution**: 8H candles, not daily
-- 1 period = 8 hours
-- 3 periods = 24 hours (1 day)
-- 21 periods = 7 days (1 week)
-
-**6. No fundamental data**: Only price data available
+**See `../templates/examples/crypto_bitcoin.py` for full working example.**
 
 ### When to Use Crypto
 
-**Suitable for:**
+✅ **Suitable for:**
 - Bitcoin-specific technical strategies
-- Testing crypto market hypotheses
+- Higher frequency signals (8H vs daily stocks)
 - Single-asset momentum/trend strategies
-- Higher frequency signals (8H vs daily)
 
-**Not suitable for:**
-- Multi-crypto portfolios (not yet supported)
+❌ **NOT suitable for:**
+- Multi-crypto portfolios (only BTC available)
 - Daily resolution strategies (only 8H available)
 - Altcoin strategies (only BTC available)
 - Fundamental analysis (no fundamental data)
 
-## Other Markets
+## Data Discovery Best Practices
 
-Additional markets are available but documentation is limited. Use `cf.search()` to explore:
-
-- `us_etf` - US Exchange-Traded Funds
-- `us_future` - US Futures contracts
-- `id_stock` - Indonesian stocks
-- `id_bond` - Indonesian bonds
-- `id_fund` - Indonesian funds
-- `vn_stock` - Vietnamese stocks
-
-Contact support or explore with `ContentFactory.search()` for details on these markets.
-
-## Choosing the Right Universe
-
-### Quick Decision Guide
-
-```
-Need Korean stocks? → kr_stock
-Need US stocks? → us_stock
-Need Bitcoin only? → raw (crypto BETA)
-Need US ETFs/Futures? → us_etf / us_future
-Need emerging markets? → id_stock, vn_stock (explore first)
-Need multiple cryptos? → Not yet supported
-Need intraday data? → Only crypto (8H) available
-Need fundamental ratios? → kr_stock or us_stock
-```
-
-### Common Use Cases
-
-**Value Investing**: Use `kr_stock` or `us_stock` for fundamental ratios (PER, PBR, ROE, etc.)
-
-**Momentum Trading**: Any universe works; crypto has higher frequency (8H vs 1D)
-
-**Multi-factor Models**: Use `kr_stock` or `us_stock` for rich factor data
-
-**Crypto Technical Trading**: Use `raw` universe with Bitcoin (BETA)
-
-## Data Discovery
-
-### Stock Universes (kr_stock, us_stock)
-
-**Never guess item names!** Always use `cf.search()` first.
+**Rule: ALWAYS search before loading data**
 
 ```python
-# Search with keywords
-cf = ContentFactory("kr_stock", 20200101, 20241231)
-results = cf.search("price")
-print(results)  # ['price_close', 'price_open', 'price_high', 'price_low', ...]
+# ✅ CORRECT workflow
+cf = ContentFactory("kr_stock", 20230101, 20241231)
+cf.summary()  # View categories
+items = cf.search("earnings")  # Find items
+print(items)  # ['earnings-to-price', 'eps_basic', ...]
+data = cf.get_df("earnings-to-price")  # Use exact name
 
-# Check available categories
-cf.summary()  # Economic, Event, Financial, Index, Market, etc.
-
-# Search for specific metrics
-ratio_items = cf.search("ratio")
-volume_items = cf.search("volume")
+# ❌ WRONG - guessing names
+data = cf.get_df("eps")  # KeyError!
+data = cf.get_df("price_earnings_ratio")  # KeyError!
 ```
 
-### Crypto Universe (raw)
-
-**No search support** - you must know the exact item name.
-
-```python
-# Known item (from documentation)
-cf = ContentFactory('raw', 20180101, 20251114)
-btc_price = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
-btc_volume = cf.get_df('content.binance.api.price_volume.btcusdt-spot-volume.8H')
-
-# cf.search() does NOT work for raw universe
-```
+**Exception**: Crypto (`raw` universe) - `cf.search()` doesn't work, use exact names from this document.
 
 ## See Also
 
-- `framework.md` - BaseAlpha framework requirements
-- `api_reference.md` - ContentFactory and Simulator API methods
-- `../templates/examples/` - Strategy examples for each universe
+- `../SKILL.md` - Universe comparison table (quick reference)
+- `framework.md` - BaseAlpha framework rules
+- `api_reference.md` - ContentFactory and Simulator API
+- `../templates/examples/` - Working examples for each universe

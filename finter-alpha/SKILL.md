@@ -204,8 +204,17 @@ finter_id = result.index[0]  # Get FINTER ID from index
 print(f"FINTER ID: {finter_id}")
 ```
 
-**Universe-specific notes:**
-- **Stock universes** (kr_stock, us_stock): `cf.search()` works, use it!
-- **Crypto** (raw): `cf.search()` does NOT work, use exact names from `universe_reference.md`
+**Supported Universes:**
+
+| Universe | Assets | Key Differences |
+|----------|--------|-----------------|
+| kr_stock | ~2,500 | Full support, 1000+ data items |
+| us_stock | ~8,000 | Full support, 1000+ data items |
+| us_etf   | ~6,700 | Market data only |
+| id_stock | ~1,000 | Use `volume_sum` not `trading_volume` |
+| vn_stock | ~1,000 | **PascalCase**: `ClosePrice` not `price_close` |
+| raw (crypto) | 1 (BTC only) | **No cf.search()**, 8H candles, see `universe_reference.md` |
+
+**All use same framework** (BaseAlpha, ContentFactory, Simulator, Symbol). **Always use `cf.search()` and `cf.summary()`** to explore data!
 
 **DO NOT SKIP** reading `references/framework.md` - it has critical rules!
