@@ -6,11 +6,22 @@ This repository contains Claude Code skills for Finter MCP server.
 
 ### finter-alpha
 
-Alpha generation skill for Finter research platform.
+Alpha generation skill for Finter research platform using BaseAlpha framework.
+
+### finter-portfolio
+
+Portfolio optimization skill for combining multiple alpha strategies using BasePortfolio framework.
 
 ### skill-creator
 
 Skill creator tool from Anthropic's official skills repository. This helps create new Claude Code skills.
+
+## Documentation
+
+- **[CLAUDE.md](CLAUDE.md)**: Practical guide for creating and extending Finter skills using MECE + SSOT principles
+- **[DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md)**: Design philosophy and comparison with Anthropic's skill-creator approach
+
+Our skills follow MECE (Mutually Exclusive, Collectively Exhaustive) and SSOT (Single Source of Truth) principles for documentation-heavy research platform guides. See the documentation files above for details.
 
 ## Usage
 
