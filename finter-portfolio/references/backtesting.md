@@ -81,7 +81,7 @@ BasePortfolio automatically provides `get()`, so just call it:
 portfolio = Portfolio()
 
 # Just call get() - it works automatically!
-positions = portfolio.get(20240101, 20241231)
+positions = portfolio.get(20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # positions is now a combined DataFrame (date x stocks)
 # Ready for backtesting!
@@ -111,7 +111,7 @@ from finter.backtest import Simulator
 
 # Step 1: Create portfolio and generate positions
 portfolio = Portfolio()
-positions = portfolio.get(20240101, 20241231)
+positions = portfolio.get(20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # Step 2: Run backtest
 simulator = Simulator(market_type="us_stock")
@@ -354,8 +354,8 @@ class EqualWeightBaseline(BasePortfolio):
 
 # Backtest both
 simulator = Simulator(market_type="us_stock")
-opt_result = simulator.run(position=OptimizedPortfolio().get(20240101, 20241231))
-base_result = simulator.run(position=EqualWeightBaseline().get(20240101, 20241231))
+opt_result = simulator.run(position=OptimizedPortfolio().get(20200101, int(datetime.now().strftime("%Y%m%d"))))
+base_result = simulator.run(position=EqualWeightBaseline().get(20200101, int(datetime.now().strftime("%Y%m%d"))))
 
 # Compare
 print("Performance Comparison:")

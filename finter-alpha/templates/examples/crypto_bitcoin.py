@@ -61,7 +61,7 @@ class Alpha(BaseAlpha):
         # Note: No need for get_start_date() helper, just add buffer manually
         # For crypto, we can't use get_start_date from datetime
         # So we hardcode start to have enough buffer
-        cf = ContentFactory('raw', 20180101, end)
+        cf = ContentFactory('raw', 20200101, end)
 
         # Load Bitcoin closing price (8H candles)
         btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
@@ -85,10 +85,10 @@ from finter.backtest import Simulator
 
 # Generate positions
 alpha = Alpha()
-positions = alpha.get(20230101, 20240101, momentum_period=6)
+positions = alpha.get(20200101, int(datetime.now().strftime("%Y%m%d")), momentum_period=6)
 
 # Run backtest (use btcusdt_spot_binance market type)
-sim = Simulator("btcusdt_spot_binance", 20230101, 20240101)
+sim = Simulator("btcusdt_spot_binance", 20200101, int(datetime.now().strftime("%Y%m%d")))
 result = sim.run(position=positions)
 
 # Check results

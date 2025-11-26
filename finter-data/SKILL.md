@@ -17,7 +17,7 @@ Load and preprocess data from Finter platform for quantitative research.
 **ContentFactory Usage:**
 ```python
 # ✅ CORRECT - All parameters in constructor
-cf = ContentFactory("kr_stock", 20230101, 20241231)
+cf = ContentFactory("kr_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
 data = cf.get_df("price_close")
 
 # ❌ WRONG - Parameters in get_df
@@ -136,7 +136,7 @@ import pandas as pd
 
 **Discovery pattern:**
 ```python
-cf = ContentFactory('kr_stock', 20230101, 20241231)
+cf = ContentFactory('kr_stock', 20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # Check usage first
 cf.usage()  # General guide

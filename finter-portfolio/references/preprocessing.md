@@ -13,7 +13,7 @@ Alpha return data from `alpha_pnl_df()` often contains artifacts and requires pr
 ### Data Format
 
 ```python
-alpha_return_df = self.alpha_pnl_df('us_stock', 19980101, 20241231)
+alpha_return_df = self.alpha_pnl_df('us_stock', 20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # Result: DataFrame
 # - Index: Trading dates

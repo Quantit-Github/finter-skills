@@ -130,7 +130,7 @@ class Portfolio(BasePortfolio):
 ```python
 # Step 1: Generate weights
 portfolio = Portfolio()
-weights = portfolio.weight(20240101, 20241231)
+weights = portfolio.weight(20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # Step 2: Sanity checks (CRITICAL!)
 print(f"Weight sum per date:\n{weights.sum(axis=1).describe()}")
@@ -143,7 +143,7 @@ weights.plot(figsize=(12,6), title='Portfolio Weights Over Time')
 weights.sum(axis=1).plot(title='Weight Sum Check (should be ~1.0)', ylim=[0.95, 1.05])
 
 # Step 4: Check alpha correlations
-alpha_return_df = portfolio.alpha_pnl_df('us_stock', 19980101, 20241231)
+alpha_return_df = portfolio.alpha_pnl_df('us_stock', 20200101, int(datetime.now().strftime("%Y%m%d")))
 import seaborn as sns
 sns.heatmap(alpha_return_df.corr(), annot=True, cmap='coolwarm', center=0)
 
@@ -151,7 +151,7 @@ sns.heatmap(alpha_return_df.corr(), annot=True, cmap='coolwarm', center=0)
 from finter.backtest import Simulator
 simulator = Simulator(market_type="us_stock")
 # NO need to implement get() - just call it!
-result = simulator.run(position=portfolio.get(20240101, 20241231))
+result = simulator.run(position=portfolio.get(20200101, int(datetime.now().strftime("%Y%m%d"))))
 
 # Print metrics
 stats = result.statistics

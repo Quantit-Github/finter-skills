@@ -111,7 +111,7 @@ if __name__ == "__main__":
     alpha = Alpha()
 
     # Test on small date range
-    test_start = 20240101
+    test_start = 20200101
     test_end = 20240131
 
     positions = alpha.get(test_start, test_end)

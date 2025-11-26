@@ -101,7 +101,7 @@ if __name__ == "__main__":
     portfolio = Portfolio()
 
     # Generate weights
-    weights = portfolio.weight(20240101, 20241231)
+    weights = portfolio.weight(20200101, int(datetime.now().strftime("%Y%m%d")))
 
     # Validate
     print("=" * 60)
@@ -157,7 +157,7 @@ if __name__ == "__main__":
     # Run backtest
     print("\nRunning backtest...")
     simulator = Simulator(market_type="us_stock")
-    result = simulator.run(position=portfolio.get(20240101, 20241231))
+    result = simulator.run(position=portfolio.get(20200101, int(datetime.now().strftime("%Y%m%d"))))
 
     # Print performance metrics
     stats = result.statistics

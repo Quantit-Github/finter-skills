@@ -273,7 +273,7 @@ positions = signal.shift(1)  # Execute next day
 from finter.data import ContentFactory, Symbol
 
 # Step 1: Create ContentFactory
-cf = ContentFactory('kr_stock', 20230101, 20241231)
+cf = ContentFactory('kr_stock', 20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # Step 2: Check usage guide
 cf.usage()
@@ -336,7 +336,7 @@ print(f"Samsung price: {samsung_price.tail()}")
 
 ```python
 # Crypto exception
-cf = ContentFactory('raw', 20180101, 20240101)
+cf = ContentFactory('raw', 20200101, int(datetime.now().strftime("%Y%m%d")))
 # cf.search("btcusdt")  # Returns empty!
 
 # Use exact name from docs

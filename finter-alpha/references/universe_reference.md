@@ -18,7 +18,7 @@ Works for: `kr_stock`, `us_stock`, `us_etf`, `id_stock`
 from finter.data import ContentFactory
 
 # 1. Initialize
-cf = ContentFactory("kr_stock", 20230101, 20241231)
+cf = ContentFactory("kr_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # 2. Explore (DON'T SKIP THIS!)
 cf.summary()  # View categories
@@ -43,7 +43,7 @@ close = cf.get_df("price_close")
 ```python
 from finter.data import ContentFactory
 
-cf = ContentFactory("vn_stock", 20230101, 20241231)
+cf = ContentFactory("vn_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # ⚠️ Use PascalCase names
 close = cf.get_df("ClosePrice")      # NOT price_close
@@ -75,7 +75,7 @@ Unlike all other universes, **cf.search() does NOT work** for crypto:
 ```python
 from finter.data import ContentFactory
 
-cf = ContentFactory('raw', 20180101, 20241231)
+cf = ContentFactory('raw', 20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # ❌ Does NOT work!
 cf.search("btcusdt")  # Returns empty list!
@@ -99,7 +99,7 @@ from finter.data import ContentFactory
 from finter.backtest import Simulator
 
 # ContentFactory: Use 'raw'
-cf = ContentFactory('raw', 20180101, 20241231)
+cf = ContentFactory('raw', 20200101, int(datetime.now().strftime("%Y%m%d")))
 btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
 
 # Simulator: Use 'btcusdt_spot_binance'
@@ -164,7 +164,7 @@ class Alpha(BaseAlpha):
 
 # Backtest
 alpha = Alpha()
-positions = alpha.get(20240101, 20241231)
+positions = alpha.get(20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # ⚠️ Use 'btcusdt_spot_binance' for Simulator
 simulator = Simulator(market_type="btcusdt_spot_binance")
@@ -192,7 +192,7 @@ result = simulator.run(position=positions)
 
 ```python
 # ✅ CORRECT workflow
-cf = ContentFactory("kr_stock", 20230101, 20241231)
+cf = ContentFactory("kr_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
 cf.summary()  # View categories
 items = cf.search("earnings")  # Find items
 print(items)  # ['earnings-to-price', 'eps_basic', ...]

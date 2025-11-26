@@ -48,7 +48,7 @@ Systematic approach to developing and validating quantitative trading strategies
 from finter.data import ContentFactory
 import pandas as pd
 
-cf = ContentFactory("kr_stock", 20150101, 20241231)
+cf = ContentFactory("kr_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # 1. Check data availability
 cf.summary()
@@ -161,10 +161,9 @@ Test across different market regimes:
 ```python
 # Test in different periods
 test_periods = [
-    (20150101, 20171231),  # Bull market
-    (20180101, 20191231),  # Volatile period
     (20200101, 20211231),  # COVID & recovery
-    (20220101, 20241231),  # Recent period
+    (20220101, 20231231),  # Post-COVID period
+    (20240101, int(datetime.now().strftime("%Y%m%d"))),  # Recent period
 ]
 
 results = []
@@ -205,7 +204,7 @@ param_range = range(10, 51, 5)
 results = []
 
 for param in param_range:
-    positions = alpha.get(20200101, 20241231, momentum_period=param)
+    positions = alpha.get(20200101, int(datetime.now().strftime("%Y%m%d")), momentum_period=param)
     result = simulator.run(position=positions)
     results.append(result.statistics['Sharpe Ratio'])
 
@@ -227,7 +226,7 @@ window_size = 365 * 2  # 2 years
 step_size = 365 // 4   # Quarter
 
 start_date = 20150101
-end_date = 20241231
+end_date = int(datetime.now().strftime("%Y%m%d"))
 
 results = []
 current = start_date
@@ -260,7 +259,7 @@ Always keep a final test set untouched:
 dev_start, dev_end = 20150101, 20221231
 
 # Hold-out: Test ONLY ONCE at the very end
-holdout_start, holdout_end = 20230101, 20241231
+holdout_start, holdout_end = 20200101, int(datetime.now().strftime("%Y%m%d"))
 
 # Never optimize using hold-out period!
 ```

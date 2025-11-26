@@ -157,7 +157,7 @@ Use `self.alpha_pnl_df()` to load alpha return data:
 
 ```python
 # Get alpha returns (1.0 = no change, 1.01 = 1% return)
-alpha_return_df = self.alpha_pnl_df('us_stock', 19980101, 20241231)
+alpha_return_df = self.alpha_pnl_df('us_stock', 20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # Result: DataFrame
 # - Index: Trading dates

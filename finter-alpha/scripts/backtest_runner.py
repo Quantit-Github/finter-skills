@@ -7,7 +7,7 @@ Generates CSV results and performance chart PNG.
 
 Usage:
     python backtest_runner.py --code alpha.py
-    python backtest_runner.py --code alpha.py --start 20200101 --end 20241231
+    python backtest_runner.py --code alpha.py --start 20200101 --end $(date +%Y%m%d)
     python backtest_runner.py --code alpha.py --universe us_stock
     python backtest_runner.py --code alpha.py --output-dir ./results
     python backtest_runner.py --code alpha.py --no-chart
@@ -329,7 +329,7 @@ def main():
         epilog="""
 Examples:
   python backtest_runner.py --code alpha.py
-  python backtest_runner.py --code alpha.py --start 20200101 --end 20241231
+  python backtest_runner.py --code alpha.py --start 20200101 --end $(date +%Y%m%d)
   python backtest_runner.py --code alpha.py --universe us_stock
   python backtest_runner.py --code alpha.py --output-dir ./results
   python backtest_runner.py --code alpha.py --no-chart

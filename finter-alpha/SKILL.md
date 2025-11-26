@@ -94,7 +94,7 @@ class Alpha(BaseAlpha):
 ```python
 # Step 1: Generate positions
 alpha = Alpha()
-positions = alpha.get(20240101, 20241231)
+positions = alpha.get(20200101, int(datetime.now().strftime("%Y%m%d")))
 
 # Step 2: Run backtest
 from finter.backtest import Simulator
@@ -172,7 +172,7 @@ per = cf.get_df("price_earnings")   # ALWAYS search() first!
 **⚠️ Crypto exception:**
 ```python
 # cf.search() does NOT work for 'raw' universe
-cf = ContentFactory('raw', 20180101, 20240101)
+cf = ContentFactory('raw', 20200101, int(datetime.now().strftime("%Y%m%d")))
 cf.search("btcusdt")  # Returns empty! Must use exact names from docs
 btc_price = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
 ```
@@ -180,16 +180,16 @@ btc_price = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close
 **ContentFactory usage (CRITICAL):**
 ```python
 # ✅ CORRECT - ALL parameters in constructor
-cf = ContentFactory("us_stock", 20230101, 20241231)
+cf = ContentFactory("us_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
 open_price = cf.get_df("price_open")  # get_df, not get!
 close_price = cf.get_df("price_close")
 
 # ❌ WRONG - Parameters in get_df
 cf = ContentFactory("us_stock")
-open_price = cf.get_df("price_open", 20230101, 20241231)  # NO!
+open_price = cf.get_df("price_open", 20200101, int(datetime.now().strftime("%Y%m%d")))  # NO!
 
 # ❌ WRONG - Using get instead of get_df
-cf = ContentFactory("us_stock", 20230101, 20241231)
+cf = ContentFactory("us_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
 open_price = cf.get("price_open")  # NO! Use get_df!
 ```
 
