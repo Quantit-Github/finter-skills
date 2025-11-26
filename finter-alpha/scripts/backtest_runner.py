@@ -3,11 +3,19 @@
 Backtest Runner for Finter Alpha Strategies
 
 Automates backtesting of alpha strategies with comprehensive result reporting.
+Generates CSV results and performance chart PNG.
 
 Usage:
     python backtest_runner.py --code alpha.py
     python backtest_runner.py --code alpha.py --start 20200101 --end 20241231
     python backtest_runner.py --code alpha.py --universe us_stock
+    python backtest_runner.py --code alpha.py --output-dir ./results
+    python backtest_runner.py --code alpha.py --no-chart
+
+Output files:
+    backtest_summary.csv  - NAV time series
+    backtest_stats.csv    - Performance metrics
+    chart.png             - Performance chart (unless --no-chart)
 """
 
 import argparse
@@ -152,7 +160,9 @@ def validate_positions(positions):
 # ============================================================
 
 
-def run_backtest(alpha_file, start_date, end_date, universe):
+def run_backtest(
+    alpha_file, start_date, end_date, universe, output_dir=None, generate_chart=True
+):
     """
     Run complete backtest workflow.
 
@@ -166,6 +176,10 @@ def run_backtest(alpha_file, start_date, end_date, universe):
         End date in YYYYMMDD format
     universe : str
         Market universe ("kr_stock", "us_stock", etc.)
+    output_dir : str or Path, optional
+        Output directory for results (default: current working directory)
+    generate_chart : bool
+        Whether to generate chart PNG (default: True)
 
     Returns
     -------
@@ -260,29 +274,45 @@ def run_backtest(alpha_file, start_date, end_date, universe):
 
     # Save results
     print_section("Saving Results")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Save to current working directory
-    output_dir = Path.cwd()
+    # Determine output directory
+    out_dir = Path(output_dir) if output_dir else Path.cwd()
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Save summary
-    summary_file = output_dir / f"backtest_summary_{timestamp}.csv"
+    # Save summary (fixed filename, no timestamp)
+    summary_file = out_dir / "backtest_summary.csv"
     result.summary.to_csv(summary_file)
     print(f"  ✓ Summary saved: {summary_file}")
     print("    Note: NAV starts at 1000 (initial portfolio value)")
 
     # Save statistics
-    stats_file = output_dir / f"backtest_stats_{timestamp}.csv"
+    stats_file = out_dir / "backtest_stats.csv"
     result.statistics.to_csv(stats_file)
     print(f"  ✓ Statistics saved: {stats_file}")
 
-    # Save positions
-    positions_file = output_dir / f"positions_{timestamp}.csv"
-    positions.to_csv(positions_file)
-    print(f"  ✓ Positions saved: {positions_file}")
+    # Generate chart
+    if generate_chart:
+        print_section("Generating Chart")
+        try:
+            from chart_generator import create_performance_chart, load_backtest_data
+
+            nav_series, stats_dict = load_backtest_data(summary_file, stats_file)
+            chart_file = out_dir / "chart.png"
+            create_performance_chart(
+                nav_series=nav_series,
+                stats=stats_dict,
+                output_path=chart_file,
+                size="thumbnail",
+                title="Alpha Performance",
+            )
+            print(f"  ✓ Chart saved: {chart_file}")
+        except ImportError:
+            print("  ⚠️  chart_generator not found, skipping chart generation")
+        except Exception as e:
+            print(f"  ⚠️  Chart generation failed: {e}")
 
     print_section("Backtest Complete")
-    print(f"  All results saved with timestamp: {timestamp}")
+    print(f"  All results saved to: {out_dir}")
 
     return True
 
@@ -301,6 +331,8 @@ Examples:
   python backtest_runner.py --code alpha.py
   python backtest_runner.py --code alpha.py --start 20200101 --end 20241231
   python backtest_runner.py --code alpha.py --universe us_stock
+  python backtest_runner.py --code alpha.py --output-dir ./results
+  python backtest_runner.py --code alpha.py --no-chart
         """,
     )
 
@@ -318,15 +350,34 @@ Examples:
     parser.add_argument(
         "--end",
         type=int,
-        default=20241231,
-        help="End date in YYYYMMDD format (default: 20241231)",
+        default=int(datetime.now().strftime("%Y%m%d")),
+        help="End date in YYYYMMDD format (default: today)",
     )
 
     parser.add_argument(
         "--universe",
-        default="kr_stock",
-        choices=["kr_stock", "us_stock"],
-        help="Market universe (default: kr_stock)",
+        required=True,
+        choices=[
+            "kr_stock",
+            "us_stock",
+            "vn_stock",
+            "id_stock",
+            "us_etf",
+            "btcusdt_spot_binance",
+        ],
+        help="Market universe (required)",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output directory for results (default: current directory)",
+    )
+
+    parser.add_argument(
+        "--no-chart",
+        action="store_true",
+        help="Skip chart PNG generation",
     )
 
     args = parser.parse_args()
@@ -337,6 +388,8 @@ Examples:
         start_date=args.start,
         end_date=args.end,
         universe=args.universe,
+        output_dir=args.output_dir,
+        generate_chart=not args.no_chart,
     )
 
     sys.exit(0 if success else 1)
