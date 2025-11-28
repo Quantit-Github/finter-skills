@@ -20,6 +20,8 @@ Tags (examples):
 
 Required Fields:
     - title: Strategy name (converted to snake_case)
+              ⚠️ MUST be in English! Korean/non-ASCII characters will cause errors.
+              Example: "Momentum Top 10", "Value Quality", "RSI Mean Reversion"
     - summary: Brief description of the strategy logic
     - category: One of the valid categories above
     - evaluation: Performance evaluation (e.g., "Sharpe 1.5, MDD 15%, Total Return 45%")
@@ -56,9 +58,35 @@ VALID_UNIVERSES = [
 
 
 def to_snake_case(text: str) -> str:
-    """Convert text to snake_case."""
+    """
+    Convert text to snake_case.
+
+    Args:
+        text: Strategy title (MUST be in English)
+
+    Returns:
+        snake_case version of the title
+
+    Raises:
+        ValueError: If title contains non-ASCII characters (Korean, etc.)
+    """
+    # Check for non-ASCII characters (Korean, Chinese, etc.)
+    if not text.isascii():
+        raise ValueError(
+            f"Title must be in English only. Got non-ASCII characters: '{text}'\n"
+            "Examples: 'Momentum Top 10', 'Value Quality', 'RSI Mean Reversion'"
+        )
+
     text = re.sub(r"[-\s]+", "_", text)
     text = re.sub(r"[^a-zA-Z0-9_]", "", text)
+
+    # Check if result is empty (all special characters)
+    if not text:
+        raise ValueError(
+            f"Title resulted in empty string after conversion. "
+            "Use alphanumeric characters only."
+        )
+
     return text.lower()
 
 
