@@ -11,7 +11,7 @@ Usage:
         --evaluation "Sharpe 0.8, needs improvement" --lessons "Factor combination was weak"
 
 Categories:
-    momentum, value, quality, growth, technical, macro, stat_arb, ml, composite
+    momentum, value, quality, growth, size, low_vol, technical, macro, stat_arb, event, ml, composite
 
 Tags (examples):
     Selection:  top_k, bottom_k, threshold, long_short
@@ -30,21 +30,29 @@ Required Fields:
 
 import argparse
 import json
+import random
 import re
+import string
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 VALID_CATEGORIES = [
-    "momentum",
-    "value",
-    "quality",
-    "growth",
-    "technical",
-    "macro",
-    "stat_arb",
-    "ml",
-    "composite",
+    # 팩터 기반 (Fama-French + 스마트베타)
+    "momentum",  # 가격/수익률 모멘텀
+    "value",  # PER, PBR, PSR 등
+    "quality",  # ROE, 이익안정성, 재무건전성
+    "growth",  # 매출/이익 성장률
+    "size",  # 시가총액 팩터 (소형주 효과)
+    "low_vol",  # 저변동성 팩터
+    # 전략 기반
+    "technical",  # 차트 패턴, 기술적 지표 (RSI, MACD 등)
+    "macro",  # 거시경제, 섹터 로테이션
+    "stat_arb",  # 통계적 차익거래, 페어트레이딩
+    "event",  # 이벤트 드리븐 (실적, 공시 등)
+    # 방법론 기반
+    "ml",  # 머신러닝/딥러닝
+    "composite",  # 복합 팩터/전략
 ]
 
 VALID_UNIVERSES = [
@@ -83,11 +91,39 @@ def to_snake_case(text: str) -> str:
     # Check if result is empty (all special characters)
     if not text:
         raise ValueError(
-            f"Title resulted in empty string after conversion. "
+            "Title resulted in empty string after conversion. "
             "Use alphanumeric characters only."
         )
 
     return text.lower()
+
+
+MAX_TITLE_LENGTH = 45  # DB varchar(45) limit
+SUFFIX_LENGTH = 11  # _YYMMDDHH + 2 random chars
+MAX_BASE_NAME_LENGTH = MAX_TITLE_LENGTH - SUFFIX_LENGTH  # 34 chars
+
+
+def generate_model_title(base_title: str) -> str:
+    """
+    Generate alpha title with datetime and random suffix.
+
+    Args:
+        base_title: Base strategy title (will be converted to snake_case)
+
+    Returns:
+        Title with suffix: {snake_case_title}_{YYMMDDHH}{random_2_chars}
+        Example: "Momentum Top 10" -> "momentum_top_10_25113014ab"
+
+    Note:
+        Total length is limited to 45 chars (DB constraint).
+        Base name is truncated to 34 chars if needed.
+    """
+    base_name = to_snake_case(base_title)
+    if len(base_name) > MAX_BASE_NAME_LENGTH:
+        base_name = base_name[:MAX_BASE_NAME_LENGTH]
+    datetime_suffix = datetime.now().strftime("%y%m%d%H")
+    random_suffix = "".join(random.choices(string.ascii_lowercase, k=2))
+    return f"{base_name}_{datetime_suffix}{random_suffix}"
 
 
 def generate_info(
@@ -125,9 +161,10 @@ def generate_info(
         raise ValueError("lessons is required and cannot be empty")
 
     info = {
-        "alpha_title": to_snake_case(title),
-        "alpha_summary": summary,
-        "alpha_category": category,
+        "model_type": "alpha",
+        "model_title": generate_model_title(title),
+        "model_summary": summary,
+        "model_category": category,
         "tags": tags or [],
         "universe": universe,
         "investable": investable,
@@ -156,15 +193,35 @@ Examples:
 
     # Required arguments
     parser.add_argument("--title", required=True, help="Strategy name")
-    parser.add_argument("--summary", required=True, help="Brief description of strategy logic")
-    parser.add_argument("--category", required=True, choices=VALID_CATEGORIES, help="Strategy category")
-    parser.add_argument("--evaluation", required=True, help="Performance evaluation (e.g., 'Sharpe 1.5, MDD 15%')")
-    parser.add_argument("--lessons", required=True, help="Key learnings and insights from development")
+    parser.add_argument(
+        "--summary", required=True, help="Brief description of strategy logic"
+    )
+    parser.add_argument(
+        "--category", required=True, choices=VALID_CATEGORIES, help="Strategy category"
+    )
+    parser.add_argument(
+        "--evaluation",
+        required=True,
+        help="Performance evaluation (e.g., 'Sharpe 1.5, MDD 15%')",
+    )
+    parser.add_argument(
+        "--lessons", required=True, help="Key learnings and insights from development"
+    )
 
     # Optional arguments
     parser.add_argument("--tags", default="", help="Comma-separated tags")
-    parser.add_argument("--universe", default="kr_stock", choices=VALID_UNIVERSES, help="Market universe")
-    parser.add_argument("--not-investable", action="store_true", dest="not_investable", help="Mark as not ready for investment")
+    parser.add_argument(
+        "--universe",
+        default="kr_stock",
+        choices=VALID_UNIVERSES,
+        help="Market universe",
+    )
+    parser.add_argument(
+        "--not-investable",
+        action="store_true",
+        dest="not_investable",
+        help="Mark as not ready for investment",
+    )
     parser.add_argument("--output", default="info.json", help="Output file path")
 
     args = parser.parse_args()
