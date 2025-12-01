@@ -4,14 +4,18 @@ Info Generator for Finter Alpha Strategies
 
 Usage:
     python info_generator.py --title "Momentum Top 10" --summary "..." --category momentum \\
-        --evaluation "Sharpe 1.5, MDD 15%, Total Return 45%" --lessons "Learned that..."
+        --universe kr_stock --investable \\
+        --evaluation "Works well in trending markets, weak in sideways" --lessons "Learned that..."
 
     python info_generator.py --title "Value Quality" --summary "Low PBR + high ROE" \\
-        --category composite --not-investable \\
-        --evaluation "Sharpe 0.8, needs improvement" --lessons "Factor combination was weak"
+        --category composite --universe kr_stock --not-investable \\
+        --evaluation "Factor interaction unclear, needs more research" --lessons "Factor combination was weak"
 
 Categories:
     momentum, value, quality, growth, size, low_vol, technical, macro, stat_arb, event, ml, composite
+
+Universes:
+    kr_stock, us_stock, vn_stock, id_stock, us_etf, btcusdt_spot_binance
 
 Tags (examples):
     Selection:  top_k, bottom_k, threshold, long_short
@@ -19,12 +23,14 @@ Tags (examples):
     Rebalance:  daily, weekly, monthly, quarterly
 
 Required Fields:
-    - title: Strategy name (converted to snake_case)
+    - title: Strategy name (converted to snake_case, max 34 chars before suffix)
               ⚠️ MUST be in English! Korean/non-ASCII characters will cause errors.
               Example: "Momentum Top 10", "Value Quality", "RSI Mean Reversion"
     - summary: Brief description of the strategy logic
     - category: One of the valid categories above
-    - evaluation: Performance evaluation (e.g., "Sharpe 1.5, MDD 15%, Total Return 45%")
+    - universe: Market universe (one of the valid universes above)
+    - investable/not-investable: Whether strategy is ready for real investment
+    - evaluation: Strategy assessment (strengths, weaknesses, when it works/fails)
     - lessons: Key learnings and insights from development
 """
 
@@ -130,11 +136,11 @@ def generate_info(
     title: str,
     summary: str,
     category: str,
+    universe: str,
+    investable: bool,
     evaluation: str,
     lessons: str,
     tags: list[str] | None = None,
-    universe: str = "kr_stock",
-    investable: bool = True,
 ) -> dict:
     """
     Generate info dictionary for alpha strategy.
@@ -143,13 +149,13 @@ def generate_info(
         title: Strategy name (will be converted to snake_case)
         summary: Brief description of the strategy logic
         category: One of VALID_CATEGORIES
-        evaluation: Performance evaluation results (e.g., "Sharpe 1.5, MDD 15%")
+        universe: Market universe (one of VALID_UNIVERSES)
+        investable: Whether strategy is ready for real investment
+        evaluation: Strategy assessment (strengths, weaknesses, when it works/fails)
         lessons: Key learnings and insights from development
 
     Optional fields:
         tags: List of descriptive tags
-        universe: Market universe (default: kr_stock)
-        investable: Whether strategy is ready for investment (default: True)
     """
     if category not in VALID_CATEGORIES:
         raise ValueError(f"Invalid category: {category}")
@@ -183,11 +189,14 @@ def main():
         epilog="""
 Examples:
   python info_generator.py --title "Momentum Top 10" --summary "Top 10 by 20d momentum" \\
-      --category momentum --evaluation "Sharpe 1.5, MDD 15%" --lessons "Momentum works best in trending markets"
+      --category momentum --universe kr_stock --investable \\
+      --evaluation "Strong in bull markets, consider adding volatility filter" \\
+      --lessons "Momentum works best in trending markets"
 
   python info_generator.py --title "Value Quality" --summary "Low PBR + high ROE" \\
-      --category composite --not-investable \\
-      --evaluation "Sharpe 0.8, needs tuning" --lessons "Factor combination needs more research"
+      --category composite --universe kr_stock --not-investable \\
+      --evaluation "Factor interaction unclear, underperforms in growth cycles" \\
+      --lessons "Need to research factor timing"
         """,
     )
 
@@ -202,26 +211,36 @@ Examples:
     parser.add_argument(
         "--evaluation",
         required=True,
-        help="Performance evaluation (e.g., 'Sharpe 1.5, MDD 15%')",
+        help="Strategy assessment: strengths, weaknesses, conditions where it works/fails",
     )
     parser.add_argument(
         "--lessons", required=True, help="Key learnings and insights from development"
     )
 
-    # Optional arguments
-    parser.add_argument("--tags", default="", help="Comma-separated tags")
     parser.add_argument(
         "--universe",
-        default="kr_stock",
+        required=True,
         choices=VALID_UNIVERSES,
-        help="Market universe",
+        help="Market universe (required)",
     )
-    parser.add_argument(
+
+    # Investable: mutually exclusive required group
+    investable_group = parser.add_mutually_exclusive_group(required=True)
+    investable_group.add_argument(
+        "--investable",
+        action="store_true",
+        dest="investable",
+        help="Mark as ready for real investment",
+    )
+    investable_group.add_argument(
         "--not-investable",
         action="store_true",
         dest="not_investable",
-        help="Mark as not ready for investment",
+        help="Mark as NOT ready for investment (experimental/research)",
     )
+
+    # Optional arguments
+    parser.add_argument("--tags", default="", help="Comma-separated tags")
     parser.add_argument("--output", default="info.json", help="Output file path")
 
     args = parser.parse_args()
@@ -232,11 +251,11 @@ Examples:
             title=args.title,
             summary=args.summary,
             category=args.category,
+            universe=args.universe,
+            investable=args.investable,  # True if --investable, False if --not-investable
             evaluation=args.evaluation,
             lessons=args.lessons,
             tags=tags,
-            universe=args.universe,
-            investable=not args.not_investable,
         )
     except ValueError as e:
         print(f"Error: {e}")
