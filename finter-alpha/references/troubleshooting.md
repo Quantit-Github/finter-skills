@@ -33,7 +33,34 @@ def get(self, start, end):
 - Perfect timing of market moves
 - Strategy performance drops dramatically in live trading
 
-### 2. Position Constraint Violations
+### 2. Path Independence Violation (Start-End Dependency)
+
+**Problem**: Position values change depending on `start`/`end` parameters.
+
+```python
+# ❌ WRONG - Using full-period statistics
+def get(self, start, end):
+    close = cf.get_df("price_close")
+    normalized = (close - close.mean()) / close.std()  # Uses ALL data including future!
+    return (normalized > 0).shift(1) * 1e8
+
+# ✓ CORRECT - Using expanding (only past data)
+def get(self, start, end):
+    close = cf.get_df("price_close")
+    normalized = (close - close.expanding().mean()) / close.expanding().std()
+    return (normalized > 0).shift(1) * 1e8
+```
+
+**Why it matters**: `get(20200101, 20201231)` and `get(20200101, 20210630)` must return **identical values for overlapping dates**. If not, `end` parameter is leaking into past calculations.
+
+**Common violations**: `.mean()`, `.std()`, `.rank()` on full DataFrame → use `.expanding()` versions instead.
+
+**Verify with script**:
+```bash
+python scripts/alpha_validator.py --code alpha.py --universe kr_stock
+```
+
+### 3. Position Constraint Violations
 
 **Problem**: Row sums exceed 1e8 (total AUM).
 
@@ -65,7 +92,7 @@ from helpers import validate_positions
 validate_positions(positions)
 ```
 
-### 3. Insufficient Data Buffer
+### 4. Insufficient Data Buffer
 
 **Problem**: Not loading enough historical data for calculations.
 
@@ -87,7 +114,7 @@ def get(self, start, end):
     return momentum.shift(1).loc[str(start):str(end)]
 ```
 
-### 4. NaN Handling
+### 5. NaN Handling
 
 **Problem**: NaN values propagate through calculations.
 
@@ -116,7 +143,7 @@ def get(self, start, end):
     return positions.shift(1).loc[str(start):str(end)]
 ```
 
-### 5. Incorrect Class Name
+### 6. Incorrect Class Name
 
 **Problem**: Class must be named exactly `Alpha`.
 
@@ -133,7 +160,7 @@ class Alpha(BaseAlpha):
     pass
 ```
 
-### 6. Incorrect Symbol Usage
+### 7. Incorrect Symbol Usage
 
 **Problem**: `Symbol` requires instantiation before use.
 
@@ -152,6 +179,34 @@ finter_id = result.index[0]
 ```
 
 **Why this happens**: `Symbol` is a class that needs to be initialized with a universe before searching.
+
+### 8. Trading Days Index Mismatch
+
+**Problem**: Position index contains non-trading days (weekends, holidays).
+
+```python
+# ❌ WRONG - Using calendar dates
+def get(self, start, end):
+    dates = pd.date_range(str(start), str(end), freq='D')  # Includes weekends!
+    positions = pd.DataFrame(index=dates, ...)
+    return positions
+
+# ❌ WRONG - Resample without filtering
+def get(self, start, end):
+    monthly = close.resample('M').last()
+    positions = monthly.reindex(close.index, method='ffill')  # May have gaps
+
+# ✓ CORRECT - Use ContentFactory.trading_days
+def get(self, start, end):
+    cf = ContentFactory(universe, start, end)
+    positions = positions.reindex(cf.trading_days)  # Align to trading days
+    return positions.shift(1).loc[str(start):str(end)]
+```
+
+**Verify with script**:
+```bash
+python scripts/alpha_validator.py --code alpha.py --universe kr_stock --verbose
+```
 
 ## Performance Optimization
 

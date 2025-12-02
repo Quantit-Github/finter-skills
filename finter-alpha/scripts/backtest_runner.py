@@ -6,11 +6,9 @@ Automates backtesting of alpha strategies with comprehensive result reporting.
 Generates CSV results and performance chart PNG.
 
 Usage:
-    python backtest_runner.py --code alpha.py
-    python backtest_runner.py --code alpha.py --start 20200101 --end $(date +%Y%m%d)
-    python backtest_runner.py --code alpha.py --universe us_stock
-    python backtest_runner.py --code alpha.py --output-dir ./results
-    python backtest_runner.py --code alpha.py --no-chart
+    python backtest_runner.py --code alpha.py --universe kr_stock
+    python backtest_runner.py --code alpha.py --universe kr_stock --no-validate
+    python backtest_runner.py --code alpha.py --universe us_stock --start 20200101
 
 Output files:
     backtest_summary.csv  - NAV time series
@@ -328,11 +326,10 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python backtest_runner.py --code alpha.py
-  python backtest_runner.py --code alpha.py --start 20200101 --end $(date +%Y%m%d)
-  python backtest_runner.py --code alpha.py --universe us_stock
-  python backtest_runner.py --code alpha.py --output-dir ./results
-  python backtest_runner.py --code alpha.py --no-chart
+  python backtest_runner.py --code alpha.py --universe kr_stock
+  python backtest_runner.py --code alpha.py --universe kr_stock --no-validate
+  python backtest_runner.py --code alpha.py --universe us_stock --start 20200101
+  python backtest_runner.py --code alpha.py --universe kr_stock --no-chart
         """,
     )
 
@@ -380,6 +377,12 @@ Examples:
         help="Skip chart PNG generation",
     )
 
+    parser.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Skip alpha validation (path independence, trading days)",
+    )
+
     args = parser.parse_args()
 
     # Run backtest
@@ -391,6 +394,47 @@ Examples:
         output_dir=args.output_dir,
         generate_chart=not args.no_chart,
     )
+
+    # Run validation (default: enabled, skip with --no-validate)
+    if success and not args.no_validate:
+        print_section("Running Validation")
+        try:
+            from alpha_validator import (
+                check_path_independence,
+                check_trading_days,
+                load_alpha_from_file,
+            )
+
+            # Map market_type to universe for validation
+            universe_map = {
+                "btcusdt_spot_binance": "raw",
+            }
+            val_universe = universe_map.get(args.universe, args.universe)
+
+            AlphaClass = load_alpha_from_file(args.code)
+
+            # Check 1: Path Independence
+            print("\n  1. Path Independence")
+            passed1, msg1, _ = check_path_independence(AlphaClass)
+            status1 = "✓ PASS" if passed1 else "✗ FAIL"
+            print(f"     {status1} - {msg1}")
+
+            # Check 2: Trading Days
+            print("\n  2. Trading Days Index")
+            passed2, msg2, _ = check_trading_days(AlphaClass, val_universe)
+            status2 = "✓ PASS" if passed2 else "✗ FAIL"
+            print(f"     {status2} - {msg2}")
+
+            if not (passed1 and passed2):
+                print("\n  ⚠️  Validation failed - check for look-ahead bias!")
+                success = False
+            else:
+                print("\n  ✓ All validations passed!")
+
+        except ImportError:
+            print("  ⚠️  alpha_validator.py not found, skipping validation")
+        except Exception as e:
+            print(f"  ⚠️  Validation error: {e}")
 
     sys.exit(0 if success else 1)
 

@@ -16,6 +16,7 @@ Develop quantitative trading alpha strategies using the Finter framework.
 4. **ALWAYS shift positions**: `return positions.shift(1)` to avoid look-ahead bias
 5. **Position values = MONEY AMOUNT** (1e8 = 100% AUM), NOT signals (1/-1)!
 6. **Date buffer**: Use `get_start_date(start, buffer)`, NEVER `start - 300`!
+7. **Path independence**: Use `.expanding()` not `.mean()`/`.std()` — results must be identical for overlapping dates across different `start`/`end` calls
 
 **Common Mistakes:**
 
