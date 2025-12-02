@@ -310,10 +310,16 @@ print(f"Samsung price: {samsung_price.tail()}")
 
 ## Universe-Specific Notes
 
-### kr_stock / us_stock
+### kr_stock
 - Standard naming: `price_close`, `trading_volume`
-- Full financial data available
-- cf.search() works well
+- Financial data: search with `krx-spot-` prefix
+- See `financial_calculator.md > kr_stock Patterns` for examples
+
+### us_stock
+- Standard naming: `price_close`, `trading_volume`
+- Financial data: search with `pit-` prefix
+- **⚠️ ID System:** Price data uses gvkeyiid (8-digit), financial data uses gvkey (6-digit)
+- See `financial_calculator.md > us_stock Patterns` for ID conversion details
 
 ### us_etf
 - Market data only (price, volume)

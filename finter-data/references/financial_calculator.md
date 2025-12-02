@@ -15,17 +15,17 @@ FinancialCalculator provides a fluent API for:
 
 **When NOT to use:** Market data (price, volume) → use `get_df()` instead
 
-## cf.get_fc()
+---
+
+## Common API
+
+### cf.get_fc()
 
 Load financial items with aliases for calculation.
-
-### Signature
 
 ```python
 fc = cf.get_fc(item_name: str | dict, **kwargs) -> FinancialCalculator
 ```
-
-### Parameters
 
 **Single item:**
 ```python
@@ -45,20 +45,9 @@ fc = cf.get_fc({
 - Clearer code intent
 - Auto-join multiple items on (id, pit, fiscal)
 
-### Returns
-
-FinancialCalculator object with methods:
-- `apply_rolling()` - Rolling window operations
-- `apply_expression()` - Calculate ratios
-- `filter()` - Filter specific companies
-- `to_wide()` - Convert to pandas DataFrame
-- Direct polars methods: `sort()`, `select()`, etc.
-
-## fc.apply_rolling()
+### fc.apply_rolling()
 
 Apply rolling window operations for TTM calculations or averages.
-
-### Signature
 
 ```python
 fc.apply_rolling(
@@ -68,13 +57,10 @@ fc.apply_rolling(
 ) -> FinancialCalculator
 ```
 
-### Parameters
-
+**Parameters:**
 - `quarters`: Window size (4 = TTM, 0 = latest)
 - `operation`: 'sum', 'mean', 'diff', 'last'
 - `variables`: **REQUIRED** when multiple columns exist
-
-### Operations
 
 | Operation | Description | Common Use |
 |-----------|-------------|------------|
@@ -83,218 +69,90 @@ fc.apply_rolling(
 | `'diff'` | Current - N quarters ago | YoY change |
 | `'last'` | Latest quarter (quarters=0) | Latest balance sheet |
 
-### Examples
-
-**TTM (Trailing Twelve Months):**
-```python
-fc = cf.get_fc({
-    'income': 'krx-spot-owners_of_parent_net_income',
-    'sales': 'krx-spot-sales'
-})
-
-ttm = fc.apply_rolling(4, 'sum', variables=['income', 'sales'])
-```
-
-**Average balance sheet:**
-```python
-fc = cf.get_fc({
-    'equity': 'krx-spot-owners_of_parent_equity',
-    'assets': 'krx-spot-total_assets'
-})
-
-avg = fc.apply_rolling(4, 'mean', variables=['equity', 'assets'])
-```
-
-**Selective rolling (different operations):**
-```python
-fc = cf.get_fc({
-    'income': 'krx-spot-owners_of_parent_net_income',
-    'equity': 'krx-spot-owners_of_parent_equity'
-})
-
-# TTM income, average equity
-result = (fc
-    .apply_rolling(4, 'sum', variables=['income'])
-    .apply_rolling(4, 'mean', variables=['equity'])
-)
-```
-
-## fc.apply_expression()
+### fc.apply_expression()
 
 Calculate ratios using column aliases.
-
-### Signature
 
 ```python
 fc.apply_expression(expression: str) -> FinancialCalculator
 ```
 
-### Parameters
-
-- `expression`: Python expression using column aliases
-
-### Examples
-
-**Simple ratio:**
+**Example:**
 ```python
-fc = cf.get_fc({
-    'income': 'krx-spot-owners_of_parent_net_income',
-    'equity': 'krx-spot-owners_of_parent_equity'
-})
-
 roe = fc.apply_expression('income / equity')
 ```
 
-**Complex expression:**
-```python
-fc = cf.get_fc({
-    'income': 'krx-spot-owners_of_parent_net_income',
-    'sales': 'krx-spot-sales',
-    'assets': 'krx-spot-total_assets',
-    'equity': 'krx-spot-owners_of_parent_equity'
-})
-
-# DuPont: (income/sales) * (sales/assets) * (assets/equity)
-dupont = fc.apply_expression('(income / sales) * (sales / assets) * (assets / equity)')
-```
-
-## fc.filter()
+### fc.filter()
 
 Filter for specific companies using Polars expressions.
-
-### Signature
 
 ```python
 fc.filter(condition) -> polars.DataFrame
 ```
 
-**Note: Returns Polars DataFrame, not FinancialCalculator!**
+**Note:** Returns Polars DataFrame, not FinancialCalculator!
 
-### Examples
-
-**Single company:**
 ```python
 import polars as pl
-
 samsung = fc.filter(pl.col('id') == 12170)
-print(samsung)  # Polars DataFrame (long format)
 ```
 
-**Multiple companies:**
-```python
-companies = fc.filter(pl.col('id').is_in([12170, 10642]))
-```
-
-## fc.to_wide()
+### fc.to_wide()
 
 Convert to pandas DataFrame (dates × stocks) for Alpha usage.
-
-### Signature
 
 ```python
 fc.to_wide() -> pd.DataFrame
 ```
 
-### Returns
-
-Pandas DataFrame with:
+**Returns:** Pandas DataFrame with:
 - Index: Trading dates (daily)
-- **Columns: Depends on whether expression was applied**
+- Columns: Depends on whether expression was applied
   - **With expression**: Simple Int64Index (Finter IDs)
   - **Without expression**: MultiIndex (variable name, Finter ID)
 - Values: Calculated values, forward-filled to trading dates
 
-### Column Structure
+**Column behavior:**
 
-**Case 1: Single expression applied**
+| Scenario | Column Type | Access Pattern |
+|----------|-------------|----------------|
+| After `apply_expression()` | Simple index | `df[12170]` |
+| Multiple variables, no expression | MultiIndex | `df.xs(12170, level=1, axis=1)` |
+
+---
+
+## kr_stock Patterns
+
+### Search Prefix: `krx-spot-`
+
+For kr_stock financial data, search with `krx-spot-` prefix:
+
 ```python
-fc = cf.get_fc({
-    'income': 'krx-spot-owners_of_parent_net_income',
-    'equity': 'krx-spot-owners_of_parent_equity'
-})
+cf = ContentFactory('kr_stock', 20200101, 20241201)
 
-roe = (fc
-    .apply_rolling(4, 'sum', variables=['income'])
-    .apply_rolling(4, 'mean', variables=['equity'])
-    .apply_expression('income / equity')  # ← Expression applied!
-)
+# Search financial items
+results = cf.search('krx-spot-')
+# Returns: ['krx-spot-sales', 'krx-spot-operating_income', ...]
 
-roe_df = roe.to_wide()
-
-print(roe_df.columns)  # Int64Index([12170, 12171, ...])  ← Simple!
-samsung_roe = roe_df[12170]  # Direct access ✅
+results = cf.search('krx-spot-owners')
+# Returns: ['krx-spot-owners_of_parent_net_income', 'krx-spot-owners_of_parent_equity', ...]
 ```
 
-**Case 2: No expression (multiple variables)**
-```python
-fc = cf.get_fc({
-    'income': 'krx-spot-owners_of_parent_net_income',
-    'equity': 'krx-spot-owners_of_parent_equity'
-})
+### Common Items
 
-result = (fc
-    .apply_rolling(4, 'sum', variables=['income'])
-    .apply_rolling(4, 'mean', variables=['equity'])
-    # No expression! ← Multiple variables remain
-)
-
-result_df = result.to_wide()
-
-print(result_df.columns)  # MultiIndex([('income', 12170), ('equity', 12170), ...])
-# Access specific stock - use .xs()!
-samsung_data = result_df.xs(12170, level=1, axis=1)  # ✅
-print(samsung_data.columns)  # Index(['income', 'equity'])
-```
+| Item | Description |
+|------|-------------|
+| `krx-spot-sales` | Revenue |
+| `krx-spot-operating_income` | Operating income |
+| `krx-spot-owners_of_parent_net_income` | Net income (parent) |
+| `krx-spot-owners_of_parent_equity` | Equity (parent) |
+| `krx-spot-total_assets` | Total assets |
+| `krx-spot-current_assets` | Current assets |
+| `krx-spot-current_liabilities` | Current liabilities |
 
 ### Examples
 
-**Example 1: With expression (simple columns)**
-```python
-fc = cf.get_fc({
-    'income': 'krx-spot-owners_of_parent_net_income',
-    'equity': 'krx-spot-owners_of_parent_equity'
-})
-
-roe = (fc
-    .apply_rolling(4, 'sum', variables=['income'])
-    .apply_rolling(4, 'mean', variables=['equity'])
-    .apply_expression('income / equity')
-)
-
-roe_df = roe.to_wide()
-
-print(roe_df.shape)  # (dates, stocks)
-print(roe_df.index)  # DatetimeIndex (daily)
-print(roe_df.columns)  # Int64Index (Finter IDs)  ← Simple!
-
-# Use in Alpha
-positions = roe_df.rank(axis=1, pct=True) * 1e8
-```
-
-**Example 2: Without expression (MultiIndex columns)**
-```python
-fc = cf.get_fc({
-    'income': 'krx-spot-owners_of_parent_net_income',
-    'sales': 'krx-spot-sales'
-})
-
-ttm = fc.apply_rolling(4, 'sum', variables=['income', 'sales'])
-ttm_df = ttm.to_wide()
-
-print(ttm_df.columns)  # MultiIndex: [(income, 12170), (income, 12171), (sales, 12170), ...]
-
-# Access specific stock across all variables
-samsung_id = 12170
-samsung_data = ttm_df.xs(samsung_id, level=1, axis=1)
-print(samsung_data.columns)  # Index(['income', 'sales'])
-print(samsung_data['income'])  # Samsung's TTM income
-print(samsung_data['sales'])   # Samsung's TTM sales
-```
-
-## Common Financial Patterns
-
-### ROE (Return on Equity)
-
+**ROE (Return on Equity):**
 ```python
 roe = (cf.get_fc({
     'income': 'krx-spot-owners_of_parent_net_income',
@@ -306,8 +164,7 @@ roe = (cf.get_fc({
     .to_wide())
 ```
 
-### Operating Margin
-
+**Operating Margin:**
 ```python
 margin = (cf.get_fc({
     'oi': 'krx-spot-operating_income',
@@ -318,8 +175,7 @@ margin = (cf.get_fc({
     .to_wide())
 ```
 
-### Current Ratio (no rolling)
-
+**Current Ratio (no rolling):**
 ```python
 current_ratio = (cf.get_fc({
     'ca': 'krx-spot-current_assets',
@@ -329,18 +185,106 @@ current_ratio = (cf.get_fc({
     .to_wide())
 ```
 
-### Asset Turnover
+---
+
+## us_stock Patterns
+
+### Search Prefix: `pit-`
+
+For us_stock financial data, search with `pit-` prefix:
 
 ```python
-turnover = (cf.get_fc({
-    'sales': 'krx-spot-sales',
-    'assets': 'krx-spot-total_assets'
+cf = ContentFactory('us_stock', 20200101, 20241201)
+
+# Search financial items
+results = cf.search('pit-')
+# Returns: ['pit-saleq', 'pit-niq', 'pit-atq', ...]
+
+results = cf.search('pit-sale')
+# Returns: ['pit-saleq', ...]
+```
+
+**Note:** `pit-` prefix items automatically use `mode='original'` to preserve fiscal information.
+
+### ID System: gvkey vs gvkeyiid
+
+| Term | Description | Example |
+|------|-------------|---------|
+| gvkey | Company ID (6-digit) | 001004 |
+| gvkeyiid | Security ID (8-digit) | 00100401 |
+| iid | Security identifier (2-digit) | 01 |
+
+Relation: `gvkeyiid = gvkey + iid`
+
+**Data by ID type:**
+
+| Data Type | Method | ID Format |
+|-----------|--------|-----------|
+| Price/Market data | `get_df()` | gvkeyiid (8-digit) |
+| Financial data | `get_fc()` | gvkey (6-digit) |
+
+### Automatic ID Conversion
+
+`to_wide()` automatically converts gvkey to gvkeyiid for us_stock:
+
+```python
+fc = cf.get_fc('pit-saleq')
+df = fc.to_wide()  # Columns are gvkeyiid (8-digit)
+print(df.columns[:3])  # ['00130001', '00104501', ...]
+```
+
+### Manual ID Conversion: to_security()
+
+For `get_df()` data, use `cf.to_security()`:
+
+```python
+# Financial data via get_df (6-digit gvkey)
+df = cf.get_df('saleq')
+print(df.columns[:3])  # ['001004', '001045', ...]
+
+# Convert to gvkeyiid (1:N broadcast)
+df_security = cf.to_security(df)
+print(df_security.columns[:3])  # ['00100401', '00104501', ...]
+```
+
+**Note:** `to_security()` is us_stock only. Raises ValueError for other universes.
+
+### Common Items
+
+| Item | Description |
+|------|-------------|
+| `pit-saleq` | Quarterly revenue |
+| `pit-niq` | Quarterly net income |
+| `pit-atq` | Total assets |
+| `pit-seqq` | Stockholders equity |
+| `pit-cogsq` | Cost of goods sold |
+
+### Examples
+
+**ROE:**
+```python
+roe = (cf.get_fc({
+    'income': 'pit-niq',
+    'equity': 'pit-seqq'
 })
-    .apply_rolling(4, 'sum', variables=['sales'])
-    .apply_rolling(4, 'mean', variables=['assets'])
-    .apply_expression('sales / assets')
+    .apply_rolling(4, 'sum', variables=['income'])
+    .apply_rolling(4, 'mean', variables=['equity'])
+    .apply_expression('income / equity')
     .to_wide())
 ```
+
+**Gross Margin:**
+```python
+margin = (cf.get_fc({
+    'sales': 'pit-saleq',
+    'cogs': 'pit-cogsq'
+})
+    .apply_rolling(4, 'sum', variables=['sales', 'cogs'])
+    .apply_expression('(sales - cogs) / sales')
+    .to_wide())
+```
+
+---
 
 ## Workflow Summary
 
@@ -371,5 +315,5 @@ positions = result_df.rank(axis=1, pct=True) * 1e8
 
 ## See Also
 
-- `framework.md` - ContentFactory basics
+- `framework.md` - ContentFactory basics, get_df() API
 - `templates/examples/` - Financial ratio examples

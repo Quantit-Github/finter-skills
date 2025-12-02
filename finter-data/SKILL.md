@@ -28,6 +28,8 @@ data = cf.get_df("price_close", 20230101, 20241231)  # NO!
 **Method Selection:**
 - **Market data** (price, volume): Use `get_df()` → pandas DataFrame
 - **Financial data** (statements): Use `get_fc()` → FinancialCalculator (fluent API)
+  - kr_stock: search `krx-spot-*` prefix
+  - us_stock: search `pit-*` prefix (see financial_calculator.md)
 
 **Common Mistakes:**
 
@@ -109,6 +111,14 @@ close.plot(figsize=(12, 6))  # Displays inline, no save needed
 **Choose the right method:**
 - **Market data** (price, volume) → `get_df()` (see framework.md)
 - **Financial data** (statements) → `get_fc()` (see financial_calculator.md)
+
+### Know Your Universe
+**Financial data patterns differ by universe** (see financial_calculator.md):
+
+| Universe | Search Prefix | ID System | Reference |
+|----------|---------------|-----------|-----------|
+| kr_stock | `krx-spot-` | Single (int) | financial_calculator.md > kr_stock Patterns |
+| us_stock | `pit-` | gvkey/gvkeyiid | financial_calculator.md > us_stock Patterns |
 
 ### Review Preprocessing Patterns
 **See `references/preprocessing.md` for:**
