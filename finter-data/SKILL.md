@@ -113,12 +113,16 @@ close.plot(figsize=(12, 6))  # Displays inline, no save needed
 - **Financial data** (statements) → `get_fc()` (see financial_calculator.md)
 
 ### Know Your Universe
-**Financial data patterns differ by universe** (see financial_calculator.md):
+**Each universe has different patterns.** See `references/universes/`:
 
-| Universe | Search Prefix | ID System | Reference |
-|----------|---------------|-----------|-----------|
-| kr_stock | `krx-spot-` | Single (int) | financial_calculator.md > kr_stock Patterns |
-| us_stock | `pit-` | gvkey/gvkeyiid | financial_calculator.md > us_stock Patterns |
+| Universe | Volume Item | Financial Prefix | Guide |
+|----------|-------------|------------------|-------|
+| kr_stock | `volume_sum` | `krx-spot-` | `universes/kr_stock.md` |
+| us_stock | `trading_volume` | `pit-` | `universes/us_stock.md` |
+| us_etf | `trading_volume` | - | `universes/us_etf.md` |
+| vn_stock | `TotalVolume` | - | `universes/vn_stock.md` |
+| id_stock | `volume_sum` | - | `universes/id_stock.md` |
+| raw | - | - | `universes/raw.md` |
 
 ### Review Preprocessing Patterns
 **See `references/preprocessing.md` for:**
@@ -132,6 +136,7 @@ close.plot(figsize=(12, 6))  # Displays inline, no save needed
 1. **`references/framework.md`** - ContentFactory API and data quality (READ THIS FIRST!)
 2. **`references/financial_calculator.md`** - get_fc() for financial data (optional)
 3. **`references/preprocessing.md`** - Preprocessing methods (SSOT)
+4. **`references/gics.md`** - GICS sector analysis (optional)
 
 **Reference during coding:**
 - **`templates/examples/`** - Working examples

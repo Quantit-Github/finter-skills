@@ -64,30 +64,63 @@ Returns:
 
 #### cf.search(query)
 
-Searches for available items:
+Searches for available items by name and description. Returns DataFrame.
 
 ```python
 # Search by keyword
 results = cf.search('close')
-# Returns: ['price_close', 'adj_close', ...]
+#              description  note
+# price_close         None  None
+# adj_close           None  None
 
-results = cf.search('volume')
-# Returns: ['trading_volume', ...]
+# Search by prefix
+results = cf.search('krx-spot-sales')
 
-# Search by prefix (for financial items)
-results = cf.search('krx-spot')
-# Returns all quarterly financial items
+# us_stock: Search by description (English)
+results = cf.search('Revenue')
+#                        description  note
+# pit-revtq   Sales/Turnover (Net)   None
 
-results = cf.search('owners_of_parent')
-# Returns: ['krx-spot-owners_of_parent_net_income', 'krx-spot-owners_of_parent_equity', ...]
+# Get item name from index
+item_name = results.index[0]
+df = cf.get_df(item_name)
 ```
 
-**Search strategies:**
-- Use concept keywords: 'close', 'volume', 'income', 'equity'
-- Use prefixes: 'krx-spot-' (Korean financial), 'price_', 'trading_'
-- Use patterns: 'owners_of_parent', 'current_', 'operating_'
+**Search priority:**
+1. Item name exact match
+2. Item name starts with query
+3. Item name contains query
+4. Description contains query (us_stock)
 
 **CRITICAL: ALWAYS search() before get_df(). NO guessing!**
+
+See `universes/` for universe-specific search patterns.
+
+#### cf.get_description(item_name)
+
+Get item description and usage notes (us_stock):
+
+```python
+cf.get_description('pit-saleq')
+# ('Sales/Turnover (Net)', None)
+
+cf.get_description('gics')
+# ('GICS Industry Classification Code', "cf.code_map('gics', level=...)")
+```
+
+Returns: `(description, note)` tuple.
+
+#### cf.code_map(code_type, level=1)
+
+Get code mappings (e.g., GICS). Available for kr_stock, us_stock, vn_stock.
+
+```python
+cf.code_map('gics')              # Sector (11)
+cf.code_map('gics', level=2)     # Industry Group (27)
+cf.code_map('gics', level=3)     # Industry (84)
+cf.code_map('gics', level=4)     # Sub-Industry (215)
+cf.code_map('gics', level=0)     # All (337)
+```
 
 #### cf.summary()
 
@@ -310,44 +343,18 @@ print(f"Samsung price: {samsung_price.tail()}")
 
 ## Universe-Specific Notes
 
-### kr_stock
-- Standard naming: `price_close`, `trading_volume`
-- Financial data: search with `krx-spot-` prefix
-- See `financial_calculator.md > kr_stock Patterns` for examples
+Each universe has different naming conventions, search patterns, and gotchas.
 
-### us_stock
-- Standard naming: `price_close`, `trading_volume`
-- Financial data: search with `pit-` prefix
-- **⚠️ ID System:** Price data uses gvkeyiid (8-digit), financial data uses gvkey (6-digit)
-- See `financial_calculator.md > us_stock Patterns` for ID conversion details
+**See `universes/` for detailed guides:**
 
-### us_etf
-- Market data only (price, volume)
-- Limited fundamental data
-- cf.search() works
-
-### id_stock
-- Different naming: `volume_sum` instead of `trading_volume`
-- Use cf.search() to find correct names
-
-### vn_stock
-- PascalCase naming: `ClosePrice` instead of `price_close`
-- Use cf.search() to find exact names
-
-### raw (crypto)
-- **cf.search() does NOT work!**
-- Must use exact names from documentation
-- 8H candles (not daily)
-- Limited to specific pairs (e.g., btcusdt)
-
-```python
-# Crypto exception
-cf = ContentFactory('raw', 20200101, int(datetime.now().strftime("%Y%m%d")))
-# cf.search("btcusdt")  # Returns empty!
-
-# Use exact name from docs
-btc_price = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
-```
+| Universe | Guide | Key Points |
+|----------|-------|------------|
+| kr_stock | `universes/kr_stock.md` | `krx-spot-` prefix, `volume_sum` |
+| us_stock | `universes/us_stock.md` | `pit-` prefix, gvkey/gvkeyiid |
+| us_etf | `universes/us_etf.md` | Market data only, no financials |
+| vn_stock | `universes/vn_stock.md` | PascalCase (`ClosePrice`) |
+| id_stock | `universes/id_stock.md` | `volume_sum`, ticker IDs |
+| raw | `universes/raw.md` | search() doesn't work, full paths |
 
 ## Visualization Best Practices
 
@@ -400,5 +407,6 @@ plt.ylabel('Dates')
 ## See Also
 
 - `financial_calculator.md` - get_fc() API for financial data
+- `gics.md` - GICS sector analysis patterns
 - `preprocessing.md` - Data preprocessing methods
 - `templates/examples/` - Working code examples
