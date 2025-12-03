@@ -66,6 +66,28 @@ cf.code_map('gics', level=4)     # Sub-Industry (215)
 cf.code_map('gics', level=0)     # All (337)
 ```
 
+**Returns DataFrame (NOT dict!):**
+```
+                 description     type status
+code
+10                    Energy  GSECTOR      A
+15                 Materials  GSECTOR      A
+20               Industrials  GSECTOR      A
+25    Consumer Discretionary  GSECTOR      A
+...
+60               Real Estate  GSECTOR      A
+```
+
+```python
+# index: str, columns: description, type, status
+cm = cf.code_map('gics')
+cm.loc['10', 'description']  # 'Energy'
+
+# Convert to dict if needed
+sector_map = dict(zip(cm.index, cm['description']))
+# {'10': 'Energy', '15': 'Materials', ...}
+```
+
 ## Sector-Level Analysis
 
 **Sector average returns:**
