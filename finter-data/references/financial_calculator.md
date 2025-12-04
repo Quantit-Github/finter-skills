@@ -154,4 +154,5 @@ positions = result_df.rank(axis=1, pct=True) * 1e8
 - `universes/` - Universe-specific patterns and gotchas
   - `universes/kr_stock.md` - krx-spot- prefix, examples
   - `universes/us_stock.md` - pit- prefix, gvkey/gvkeyiid conversion
+  - `universes/id_stock.md` - String IDs (ticker format)
 - `templates/examples/` - Financial ratio examples
