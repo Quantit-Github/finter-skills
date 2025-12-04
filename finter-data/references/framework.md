@@ -353,7 +353,7 @@ Each universe has different naming conventions, search patterns, and gotchas.
 | us_stock | `universes/us_stock.md` | `pit-` prefix, gvkey/gvkeyiid |
 | us_etf | `universes/us_etf.md` | Market data only, no financials |
 | vn_stock | `universes/vn_stock.md` | PascalCase (`ClosePrice`) |
-| id_stock | `universes/id_stock.md` | `volume_sum`, ticker IDs |
+| id_stock | `universes/id_stock.md` | `volume_sum`, ticker IDs, FC supported |
 | raw | `universes/raw.md` | search() doesn't work, full paths |
 
 ## Visualization Best Practices

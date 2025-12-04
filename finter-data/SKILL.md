@@ -119,9 +119,9 @@ close.plot(figsize=(12, 6))  # Displays inline, no save needed
 |----------|-------------|------------------|-------|
 | kr_stock | `volume_sum` | `krx-spot-` | `universes/kr_stock.md` |
 | us_stock | `trading_volume` | `pit-` | `universes/us_stock.md` |
-| us_etf | `trading_volume` | - | `universes/us_etf.md` |
-| vn_stock | `TotalVolume` | - | `universes/vn_stock.md` |
-| id_stock | `volume_sum` | - | `universes/id_stock.md` |
+| us_etf | `trading_volume` | not available | `universes/us_etf.md` |
+| vn_stock | `TotalVolume` | not available | `universes/vn_stock.md` |
+| id_stock | `volume_sum` | ``, (no prefix) | `universes/id_stock.md` |
 | raw | - | - | `universes/raw.md` |
 
 ### Review Preprocessing Patterns
