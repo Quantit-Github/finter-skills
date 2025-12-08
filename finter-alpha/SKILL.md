@@ -66,6 +66,20 @@ class Alpha(BaseAlpha):
         return positions.shift(1)  # Correct!
 ```
 
+**Mistake 4: Renaming DataFrame columns**
+```python
+# ❌ WRONG - Column 이름을 바꾸면 Simulator가 종목을 인식 못함
+nvda_id = '11776801'
+aapl_id = '00169001'
+close = cf.get_df("price_close")[[nvda_id, aapl_id]]
+close.columns = ['NVDA', 'AAPL']  # 절대 금지!
+
+# ✅ CORRECT - Finter ID(column)를 그대로 유지
+close = cf.get_df("price_close")[[nvda_id, aapl_id]]
+# columns: ['11776801', '00169001'] 그대로 사용
+positions = ...  # 동일한 column 구조 유지해야 Simulator 작동
+```
+
 ## 📋 Workflow (DATA FIRST)
 
 1. **Explore Data FIRST**: Load sample data in Jupyter, visualize, test library functions
