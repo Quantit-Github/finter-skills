@@ -16,7 +16,6 @@ Develop quantitative trading alpha strategies using the Finter framework.
 4. **ALWAYS shift positions**: `return positions.shift(1)` to avoid look-ahead bias
 5. **Position values = MONEY AMOUNT** (1e8 = 100% AUM), NOT signals (1/-1)!
 6. **Date buffer**: Use `get_start_date(start, buffer)`, NEVER `start - 300`!
-7. **Path independence**: Use `.expanding()` not `.mean()`/`.std()` — results must be identical for overlapping dates across different `start`/`end` calls
 
 **Common Mistakes:**
 
@@ -45,8 +44,13 @@ cf = ContentFactory("kr_stock", get_start_date(start, buffer=300), end)
 
 # get_start_date is included in all templates!
 def get_start_date(start: int, buffer: int = 365) -> int:
-    """Subtract buffer days from start date correctly"""
-    # Handles month/year boundaries properly
+    """
+    Get start date with buffer days for data loading.
+    Rule of thumb: buffer = 2x longest lookback + 250 days
+    """
+    return int(
+        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime("%Y%m%d")
+    )
 ```
 
 **Mistake 3: Wrong class/method names**
@@ -117,6 +121,28 @@ result.summary['nav'].plot(title='NAV (starts at 1000)', figsize=(12,6))
 # - DO NOT use 'Annual Return (%)' - it doesn't exist!
 ```
 
+**Available `result.statistics` fields (18 total):**
+| Field | Description |
+|-------|-------------|
+| `Total Return (%)` | Total portfolio return |
+| `CAGR (%)` | Compound Annual Growth Rate |
+| `Volatility (%)` | Annualized standard deviation |
+| `Hit Ratio (%)` | % of profitable days |
+| `Sharpe Ratio` | Risk-adjusted return |
+| `Sortino Ratio` | Downside risk-adjusted return |
+| `Max Drawdown (%)` | Largest peak-to-trough loss |
+| `Mean Drawdown (%)` | Average drawdown |
+| `Calmar Ratio` | Return / Max Drawdown |
+| `Avg Tuw` | Average time underwater (days) |
+| `Max Tuw` | Maximum time underwater (days) |
+| `Skewness` | Return distribution skewness |
+| `Kurtosis` | Return distribution kurtosis |
+| `VaR 95% (%)` | 95% Value-at-Risk |
+| `VaR 99% (%)` | 99% Value-at-Risk |
+| `Positive HHI` | HHI for positive returns |
+| `Negative HHI` | HHI for negative returns |
+| `K Ratio` | Equity curve slope / std error |
+
 See `references/api_reference.md` for complete Simulator API.
 
 ## 📚 Documentation
@@ -151,58 +177,18 @@ from finter.backtest import Simulator
 import pandas as pd
 ```
 
-**Data discovery (find item names):**
+**Data Loading:**
+
+> **SSOT:** For ContentFactory usage, data discovery, and Symbol search,
+> see `finter-data` skill. Key points:
+> - Use `search_cm` MCP tool FIRST to find data items
+> - ALL parameters in ContentFactory constructor (NOT in get_df)
+> - Use `get_df()` for market data, `get_fc()` for financial data
+
 ```python
-# ✅ CORRECT - Search BEFORE using
-results = cf.search("price")  # Find available items
-print(results)  # ['price_close', 'price_open', 'price_high', ...]
-close = cf.get_df("price_close")  # Use exact name from search!
-
-# If search returns empty, check categories
-cf.summary()  # Shows: Economic, Event, Financial, Market, ...
-cf.search("ratio")  # Try related keywords
-cf.search("per")    # Try abbreviations
-
-# ❌ WRONG - Guessing item names
-close = cf.get_df("closing_price")  # KeyError! Never guess!
-per = cf.get_df("price_earnings")   # ALWAYS search() first!
-```
-
-**CRITICAL: Always search() BEFORE get_df(). NO guessing item names!**
-
-**⚠️ Crypto exception:**
-```python
-# cf.search() does NOT work for 'raw' universe
-cf = ContentFactory('raw', 20200101, int(datetime.now().strftime("%Y%m%d")))
-cf.search("btcusdt")  # Returns empty! Must use exact names from docs
-btc_price = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
-```
-
-**ContentFactory usage (CRITICAL):**
-```python
-# ✅ CORRECT - ALL parameters in constructor
+# Quick example (see finter-data for full details)
 cf = ContentFactory("us_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
-open_price = cf.get_df("price_open")  # get_df, not get!
-close_price = cf.get_df("price_close")
-
-# ❌ WRONG - Parameters in get_df
-cf = ContentFactory("us_stock")
-open_price = cf.get_df("price_open", 20200101, int(datetime.now().strftime("%Y%m%d")))  # NO!
-
-# ❌ WRONG - Using get instead of get_df
-cf = ContentFactory("us_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
-open_price = cf.get("price_open")  # NO! Use get_df!
-```
-
-**Symbol search (for specific stocks):**
-```python
-from finter.data import Symbol
-symbol = Symbol("us_stock")  # Create instance first
-result = symbol.search("palantir")  # Returns DataFrame!
-
-# FINTER ID is in the INDEX (not column!)
-finter_id = result.index[0]  # Get FINTER ID from index
-print(f"FINTER ID: {finter_id}")
+close = cf.get_df("price_close")  # Use get_df, not get!
 ```
 
 **Supported Universes:**
@@ -215,7 +201,5 @@ print(f"FINTER ID: {finter_id}")
 | id_stock | ~1,000 | Use `volume_sum` not `trading_volume` |
 | vn_stock | ~1,000 | **PascalCase**: `ClosePrice` not `price_close` |
 | raw (crypto) | 1 (BTC only) | **No cf.search()**, 8H candles, see `universe_reference.md` |
-
-**All use same framework** (BaseAlpha, ContentFactory, Simulator, Symbol). **Always use `cf.search()` and `cf.summary()`** to explore data!
 
 **DO NOT SKIP** reading `references/framework.md` - it has critical rules!

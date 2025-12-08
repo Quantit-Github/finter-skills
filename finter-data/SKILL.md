@@ -9,10 +9,16 @@ Load and preprocess data from Finter platform for quantitative research.
 
 ## ⚠️ CRITICAL RULES (MUST FOLLOW)
 
-**Data Discovery:**
-1. **ALWAYS use `cf.search()` BEFORE `cf.get_df()`** - NEVER guess item names!
-2. **Use `cf.usage()` for guidance** - Check general or item-specific usage
-3. **Exception: Crypto (`raw` universe)** - search() doesn't work, use exact names from docs
+**Data Discovery (SEARCH FIRST!):**
+1. **FIRST use `search_cm` MCP tool** - Fast server-side search across all universes
+   ```
+   mcp__search_finter__search_cm(query="close price", universe="kr_stock")
+   ```
+2. **THEN use `cf.search()` for verification** - In Jupyter, for current universe only
+3. **Use `cf.usage()` for guidance** - Check general or item-specific usage
+4. **Exception: Crypto (`raw` universe)** - search doesn't work, use exact names from docs
+
+**NEVER guess item names. Always search first!**
 
 **ContentFactory Usage:**
 ```python
@@ -30,6 +36,7 @@ data = cf.get_df("price_close", 20230101, 20241231)  # NO!
 - **Financial data** (statements): Use `get_fc()` → FinancialCalculator (fluent API)
   - kr_stock: search `krx-spot-*` prefix
   - us_stock: search `pit-*` prefix (see financial_calculator.md)
+  - id_stock: search item (no prefix)
 
 **Common Mistakes:**
 
@@ -38,7 +45,9 @@ data = cf.get_df("price_close", 20230101, 20241231)  # NO!
 # ❌ WRONG - Guessing names
 close = cf.get_df("closing_price")  # KeyError!
 
-# ✅ CORRECT - Search first
+# ✅ CORRECT - Search first (use search_cm MCP tool, then cf.search for verification)
+# Step 1: mcp__search_finter__search_cm(query="close", universe="kr_stock")
+# Step 2: Verify in Jupyter
 results = cf.search("close")
 print(results)  # ['price_close', 'adj_close', ...]
 close = cf.get_df("price_close")  # Use exact name!
@@ -89,7 +98,9 @@ close.plot(figsize=(12, 6))  # Displays inline, no save needed
 
 ## 📋 Workflow (DATA FIRST)
 
-1. **Discovery**: Use `cf.search()` to find available data items
+1. **Discovery**:
+   - FIRST: `search_cm` MCP tool for fast server search
+   - THEN: `cf.search()` in Jupyter for verification
 2. **Load**: Use ContentFactory with correct parameters
 3. **Quality Check**: Inspect NaN, outliers, distributions
 4. **Preprocess**: Handle missing values, outliers, normalization
@@ -151,12 +162,17 @@ import pandas as pd
 
 **Discovery pattern:**
 ```python
-cf = ContentFactory('kr_stock', 20200101, int(datetime.now().strftime("%Y%m%d")))
+# Step 1: Use search_cm MCP tool FIRST (fast server search)
+# mcp__search_finter__search_cm(query="close price", universe="kr_stock")
+# Returns: [{"cm_name": "price_close", "description": "...", ...}, ...]
+
+# Step 2: Verify/explore in Jupyter
+cf = ContentFactory('kr_stock', 20230101, 20241231)
 
 # Check usage first
 cf.usage()  # General guide
 
-# Search for items
+# Search for items (verification)
 results = cf.search('close')
 print(results)  # ['price_close', 'adj_close', ...]
 
