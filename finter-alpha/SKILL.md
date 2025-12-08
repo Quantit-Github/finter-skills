@@ -86,10 +86,12 @@ positions = ...  # 동일한 column 구조 유지해야 Simulator 작동
 2. **Analyze Patterns**: Check distributions, correlations, data quality
 3. **Reference Examples**: Find closest template from `templates/examples/`
 4. **Implement in Jupyter**: Write Alpha class based on data insights
-5. **Backtest in Jupyter**: Test with Simulator before saving
-6. **Save alpha.py**: Only after successful backtest
+5. **Validate Positions**: Run `validate_positions(positions)` — **⛔ 실패 시 4번으로 돌아가서 수정**
+6. **Backtest in Jupyter**: Run Simulator, check metrics — **⛔ 결과 불량 시 4번으로 돌아가서 수정**
+7. **Save alpha.py**: Only after validation & backtest 모두 성공
 
 **⚠️ NEVER write Alpha class before exploring data!**
+**⚠️ NEVER save alpha.py if validation fails or backtest results are poor!**
 
 ## 🎯 First Steps
 
