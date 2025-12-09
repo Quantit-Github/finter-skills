@@ -198,12 +198,14 @@ import pandas as pd
 > **SSOT:** For ContentFactory usage, data discovery, and Symbol search,
 > see `finter-data` skill. Key points:
 > - Use `cf.search()` to find data items - **ENGLISH ONLY** (Korean doesn't work)
+> - Use `print(cf.search('keyword').to_string())` to see full results (default output truncates)
 > - ALL parameters in ContentFactory constructor (NOT in get_df)
 > - Use `get_df()` for market data, `get_fc()` for financial data
 
 ```python
 # Quick example (see finter-data for full details)
 cf = ContentFactory("us_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
+print(cf.search('close').to_string())  # See all results without truncation
 close = cf.get_df("price_close")  # Use get_df, not get!
 ```
 
