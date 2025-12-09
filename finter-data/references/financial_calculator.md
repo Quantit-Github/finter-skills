@@ -11,6 +11,10 @@ FinancialCalculator provides a fluent API for:
 4. Filtering specific companies
 5. Converting to wide format (pandas DataFrame)
 
+**Internal:** Uses Polars DataFrame internally for efficient computation. Methods return FinancialCalculator (chainable) except:
+- `filter()` → returns `polars.DataFrame`
+- `to_wide()` → returns `pandas.DataFrame`
+
 **When to use:** Quarterly financial statements (income, balance sheet, cash flow)
 
 **When NOT to use:** Market data (price, volume) → use `get_df()` instead
@@ -147,6 +151,69 @@ result_df = fc.to_wide()
 # 6. Use in Alpha
 positions = result_df.rank(axis=1, pct=True) * 1e8
 ```
+
+---
+
+## Common Mistakes
+
+### Mistake 1: Loading items separately
+```python
+# ❌ WRONG - Can't combine separate fc objects
+fc_income = cf.get_fc('krx-spot-owners_of_parent_net_income')
+fc_equity = cf.get_fc('krx-spot-owners_of_parent_equity')
+
+# ✅ CORRECT - Load all at once
+fc = cf.get_fc({
+    'income': 'krx-spot-owners_of_parent_net_income',
+    'equity': 'krx-spot-owners_of_parent_equity'
+})
+```
+
+### Mistake 2: Single item without dict
+```python
+# ⚠️ Column is 'value', not item name
+fc = cf.get_fc('krx-spot-owners_of_parent_net_income')
+fc.columns  # ['pit', 'id', 'fiscal', 'value']
+
+# ✅ Use dict for explicit alias
+fc = cf.get_fc({'income': 'krx-spot-owners_of_parent_net_income'})
+fc.columns  # ['pit', 'id', 'fiscal', 'income']
+```
+
+### Mistake 3: Missing variables parameter
+```python
+# ❌ ValueError when multiple columns exist
+fc = cf.get_fc({'income': '...', 'equity': '...'})
+fc.apply_rolling(4, 'sum')  # Error!
+
+# ✅ Specify which columns to roll
+fc.apply_rolling(4, 'sum', variables=['income'])
+```
+
+### Mistake 4: MultiIndex column access
+```python
+# Without expression → MultiIndex (variable, stock_id)
+wide = fc.to_wide()
+wide[12170]  # KeyError!
+wide.xs('12170', level=1, axis=1)  # ✅ Correct
+
+# With expression → Simple index
+wide = fc.apply_expression('income / equity').to_wide()
+wide[12170]  # ✅ Works
+```
+
+### Mistake 5: Wrong operation order
+```python
+# ⚠️ Ratio first, then average (usually wrong)
+fc.apply_expression('income / equity').apply_rolling(4, 'mean')
+
+# ✅ Rolling first, then ratio (correct for most financial ratios)
+fc.apply_rolling(4, 'sum', variables=['income'])
+  .apply_rolling(4, 'mean', variables=['equity'])
+  .apply_expression('income / equity')
+```
+
+---
 
 ## See Also
 

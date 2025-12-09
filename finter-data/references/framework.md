@@ -13,22 +13,11 @@ Finter provides data through:
 
 ## Data Discovery (SSOT)
 
-**Search Priority:**
-1. **FIRST: `search_cm` MCP tool** - Fast server-side search
-   ```
-   mcp__search_finter__search_cm(query="close price", universe="kr_stock")
-   ```
-   - Searches across all universes
-   - Returns: cm_name, description, universe, category, dataset
-
-2. **THEN: `cf.search()` in Jupyter** - For verification/exploration
-   - Limited to current universe
-   - Use after search_cm to verify item names
-
-3. **For unclear values** (codes like 0/1/2/3): `search_db` MCP tool
-   ```
-   mcp__search_finter__search_db(query="margin code meaning")
-   ```
+**Discovery Methods:**
+1. **`cf.search(query)`** - Search items in current universe
+2. **`cf.usage()`** - General usage guide
+3. **`cf.usage(item_name)`** - Item-specific usage
+4. **`cf.summary()`** - Category breakdown
 
 ## ContentFactory API
 
@@ -83,8 +72,6 @@ Returns:
 
 #### cf.search(query)
 
-**Note:** Use `search_cm` MCP tool FIRST for fast discovery. Use `cf.search()` for verification/exploration in Jupyter.
-
 Searches for available items by name and description. Returns DataFrame.
 
 ```python
@@ -113,7 +100,7 @@ df = cf.get_df(item_name)
 3. Item name contains query
 4. Description contains query (us_stock)
 
-**CRITICAL: NEVER guess item names. Use search_cm MCP tool first, then cf.search() to verify!**
+**CRITICAL: NEVER guess item names. Always use cf.search() to find exact names!**
 
 See `universes/` for universe-specific search patterns.
 

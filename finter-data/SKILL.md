@@ -9,16 +9,22 @@ Load and preprocess data from Finter platform for quantitative research.
 
 ## ⚠️ CRITICAL RULES (MUST FOLLOW)
 
-**Data Discovery (SEARCH FIRST!):**
-1. **FIRST use `search_cm` MCP tool** - Fast server-side search across all universes
-   ```
-   mcp__search_finter__search_cm(query="close price", universe="kr_stock")
-   ```
-2. **THEN use `cf.search()` for verification** - In Jupyter, for current universe only
-3. **Use `cf.usage()` for guidance** - Check general or item-specific usage
-4. **Exception: Crypto (`raw` universe)** - search doesn't work, use exact names from docs
+### Request Type Routing (IMPORTANT!)
 
-**NEVER guess item names. Always search first!**
+**1. Framework/API Usage Questions** (e.g., "How to use ContentFactory?", "get_fc usage", "fc usage", "Symbol search method"):
+- ❌ DO NOT use search_cm or cf.search()
+- ✅ **Read skill references/ documents FIRST:**
+  - `references/framework.md` - ContentFactory (cf), Symbol, get_df usage
+  - `references/financial_calculator.md` - FinancialCalculator (fc), get_fc() usage
+  - `references/preprocessing.md` - Preprocessing methods
+  - `references/universes/*.md` - Universe-specific details
+
+**2. Data Item Discovery** (e.g., "find close price data", "what data for ROE calculation"):
+- ✅ **Use `cf.search()` in Jupyter** - Search items in current universe
+- ✅ **Use `cf.usage()` for guidance** - Check general or item-specific usage
+- ⚠️ **Exception: Crypto (`raw` universe)** - search doesn't work, use exact names from docs
+
+**NEVER guess item names. Always search first for DATA items!**
 
 **ContentFactory Usage:**
 ```python
@@ -38,6 +44,30 @@ data = cf.get_df("price_close", 20230101, 20241231)  # NO!
   - us_stock: search `pit-*` prefix (see financial_calculator.md)
   - id_stock: search item (no prefix)
 
+### cf vs fc (IMPORTANT!)
+
+| Abbrev | Class | Creation | Purpose |
+|--------|-------|----------|---------|
+| **cf** | ContentFactory | `cf = ContentFactory(universe, start, end)` | Data search/load (search, get_df, get_fc) |
+| **fc** | FinancialCalculator | `fc = cf.get_fc(items)` | Financial calculations (apply_rolling, apply_expression, to_wide) |
+
+**Relationship:**
+```python
+# cf is a ContentFactory instance
+cf = ContentFactory("kr_stock", 20200101, 20241231)
+
+# fc is returned by cf.get_fc() (FinancialCalculator instance)
+fc = cf.get_fc({'income': 'krx-spot-owners_of_parent_net_income'})
+
+# fc chaining
+result = fc.apply_rolling(4, 'sum').to_wide()
+```
+
+**cf methods:** `search()`, `get_df()`, `get_fc()`, `usage()`, `summary()`
+**fc methods:** `apply_rolling()`, `apply_expression()`, `filter()`, `to_wide()`
+
+→ fc details: `references/financial_calculator.md`
+
 **Common Mistakes:**
 
 **Mistake 1: Guessing item names**
@@ -45,9 +75,7 @@ data = cf.get_df("price_close", 20230101, 20241231)  # NO!
 # ❌ WRONG - Guessing names
 close = cf.get_df("closing_price")  # KeyError!
 
-# ✅ CORRECT - Search first (use search_cm MCP tool, then cf.search for verification)
-# Step 1: mcp__search_finter__search_cm(query="close", universe="kr_stock")
-# Step 2: Verify in Jupyter
+# ✅ CORRECT - Search first
 results = cf.search("close")
 print(results)  # ['price_close', 'adj_close', ...]
 close = cf.get_df("price_close")  # Use exact name!
@@ -96,18 +124,88 @@ plt.savefig('plot.png')  # ERROR!
 close.plot(figsize=(12, 6))  # Displays inline, no save needed
 ```
 
-## 📋 Workflow (DATA FIRST)
+### fc (FinancialCalculator) Common Mistakes
 
-1. **Discovery**:
-   - FIRST: `search_cm` MCP tool for fast server search
-   - THEN: `cf.search()` in Jupyter for verification
+**Mistake 5: Loading items separately instead of together**
+```python
+# ❌ WRONG - Separate fc objects can't be combined
+fc_income = cf.get_fc('krx-spot-owners_of_parent_net_income')
+fc_equity = cf.get_fc('krx-spot-owners_of_parent_equity')
+# These are separate! Can't calculate income/equity!
+
+# ✅ CORRECT - Load all items at once with aliases
+fc = cf.get_fc({
+    'income': 'krx-spot-owners_of_parent_net_income',
+    'equity': 'krx-spot-owners_of_parent_equity'
+})
+# Now you can: fc.apply_expression('income / equity')
+```
+
+**Mistake 6: Single item without dict - column is 'value'**
+```python
+# ⚠️ Single item loads as 'value' column
+fc = cf.get_fc('krx-spot-owners_of_parent_net_income')
+print(fc.columns)  # ['pit', 'id', 'fiscal', 'value'] - NOT item name!
+
+# ✅ Use dict for explicit alias
+fc = cf.get_fc({'income': 'krx-spot-owners_of_parent_net_income'})
+print(fc.columns)  # ['pit', 'id', 'fiscal', 'income']
+```
+
+**Mistake 7: Forgetting variables parameter with multiple items**
+```python
+# ❌ WRONG - Missing variables parameter
+fc = cf.get_fc({'income': '...', 'equity': '...'})
+fc.apply_rolling(4, 'sum')  # ValueError! Which column to roll?
+
+# ✅ CORRECT - Specify variables
+fc.apply_rolling(4, 'sum', variables=['income'])  # Rolls only income
+```
+
+**Mistake 8: MultiIndex columns after to_wide() without expression**
+```python
+fc = cf.get_fc({'income': '...', 'equity': '...'})
+
+# Without expression → MultiIndex columns (variable, stock_id)
+wide = fc.to_wide()
+wide[12170]  # KeyError! MultiIndex needs different access
+
+# ✅ Access MultiIndex correctly
+wide.xs('12170', level=1, axis=1)  # Returns income, equity for stock
+
+# With expression → Simple columns (stock_id only)
+wide2 = fc.apply_expression('income / equity').to_wide()
+wide2[12170]  # Works! Simple index after expression
+```
+
+**Mistake 9: Wrong operation order**
+```python
+# ⚠️ Expression BEFORE rolling - semantically wrong
+fc.apply_expression('income / equity').apply_rolling(4, 'mean')
+# This calculates ratio first, then averages the ratio
+
+# ✅ Rolling BEFORE expression - correct for financial ratios
+fc.apply_rolling(4, 'sum', variables=['income'])  # TTM income
+  .apply_rolling(4, 'mean', variables=['equity'])  # Avg equity
+  .apply_expression('income / equity')  # ROE = TTM income / Avg equity
+```
+
+## 📋 Workflow
+
+### For Simple Questions (explanation, usage, concepts)
+1. **Read references/** - Find relevant documentation
+2. **Answer directly** - No need to load data or run code
+
+### For Data Tasks (load, explore, preprocess)
+1. **Discovery**: `cf.search()` → find item names
 2. **Load**: Use ContentFactory with correct parameters
 3. **Quality Check**: Inspect NaN, outliers, distributions
 4. **Preprocess**: Handle missing values, outliers, normalization
 5. **Feature Engineering**: Transform, rank, combine (if needed)
 6. **Validate**: Verify data quality before using in alpha
 
-**⚠️ NEVER skip quality checks!**
+**⚠️ NEVER skip quality checks for data tasks!**
+**⚠️ DO NOT load data unnecessarily for simple questions!**
 
 ## 🎯 First Steps
 
@@ -162,17 +260,12 @@ import pandas as pd
 
 **Discovery pattern:**
 ```python
-# Step 1: Use search_cm MCP tool FIRST (fast server search)
-# mcp__search_finter__search_cm(query="close price", universe="kr_stock")
-# Returns: [{"cm_name": "price_close", "description": "...", ...}, ...]
-
-# Step 2: Verify/explore in Jupyter
 cf = ContentFactory('kr_stock', 20230101, 20241231)
 
 # Check usage first
 cf.usage()  # General guide
 
-# Search for items (verification)
+# Search for items
 results = cf.search('close')
 print(results)  # ['price_close', 'adj_close', ...]
 
