@@ -21,6 +21,7 @@ Load and preprocess data from Finter platform for quantitative research.
 
 **2. Data Item Discovery** (e.g., "find close price data", "what data for ROE calculation"):
 - ✅ **Use `cf.search()` in Jupyter** - Search items in current universe
+- ⚠️ **ENGLISH ONLY** - `cf.search('close')` ✅, `cf.search('종가')` ❌
 - ✅ **Use `cf.usage()` for guidance** - Check general or item-specific usage
 - ⚠️ **Exception: Crypto (`raw` universe)** - search doesn't work, use exact names from docs
 
