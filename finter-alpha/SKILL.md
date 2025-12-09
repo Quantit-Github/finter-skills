@@ -197,7 +197,7 @@ import pandas as pd
 
 > **SSOT:** For ContentFactory usage, data discovery, and Symbol search,
 > see `finter-data` skill. Key points:
-> - Use `search_cm` MCP tool FIRST to find data items
+> - Use `cf.search()` to find data items
 > - ALL parameters in ContentFactory constructor (NOT in get_df)
 > - Use `get_df()` for market data, `get_fc()` for financial data
 

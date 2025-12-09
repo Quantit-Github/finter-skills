@@ -265,13 +265,18 @@ cf = ContentFactory('kr_stock', 20230101, 20241231)
 # Check usage first
 cf.usage()  # General guide
 
-# Search for items
+# Search for items - returns DataFrame with description & note
 results = cf.search('close')
-print(results)  # ['price_close', 'adj_close', ...]
+print(results)  # View FULL DataFrame to see descriptions!
+#              description  note
+# price_close         None  None
+# adj_close           None  None
+
+# Get item name from index
+item_name = results.index[0]  # 'price_close'
 
 # For financial data, search with prefix
 results = cf.search('krx-spot-sales')  # More specific!
-print(results)  # ['krx-spot-sales', 'krx-spot-sales-annual', ...]
 
 # Check categories
 cf.summary()  # Shows: Economic, Financial, Market, ...
