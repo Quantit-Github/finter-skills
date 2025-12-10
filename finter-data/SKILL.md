@@ -268,7 +268,7 @@ cf.usage()  # General guide
 
 # Search for items - returns DataFrame with description & note
 results = cf.search('close')
-print(results)  # View FULL DataFrame to see descriptions!
+print(results.to_string())  # Use .to_string() to see full results (default output truncates)
 #              description  note
 # price_close         None  None
 # adj_close           None  None
