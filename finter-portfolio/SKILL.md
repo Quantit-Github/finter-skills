@@ -87,10 +87,12 @@ class Portfolio(BasePortfolio):
 7. **Validate Weights**: Check sum=1.0, no NaN, shift applied, sensible ranges
 8. **Backtest & Compare**: Use `portfolio.get()` to backtest, ALWAYS compare with equal weight baseline
 9. **Save portfolio.py**: Only after successful backtest comparison
+10. **Run Scripts (MANDATORY)**: Execute backtest_runner, chart_generator, info_generator
 
 **⚠️ NEVER write Portfolio class before analyzing alpha returns and correlations!**
 **⚠️ NEVER save portfolio.py without backtesting and comparing with equal weight!**
 **⚠️ NEVER implement get() method - BasePortfolio provides it automatically!**
+**⚠️ NEVER skip running scripts after saving portfolio.py!**
 
 ## 🎯 First Steps
 
@@ -254,3 +256,56 @@ return weights.shift(1).loc[str(start):str(end)]  # ← Shift for safety!
 ```
 
 **DO NOT SKIP** reading `references/framework.md` - it has critical rules!
+
+## 🚀 FINAL STEPS (MANDATORY - After Successful Backtest)
+
+**⚠️ You MUST complete ALL these steps after saving portfolio.py!**
+
+### ⚠️ Improvement Limit
+When backtest fails or results are poor:
+- You may attempt to improve the portfolio code **UP TO 3 TIMES maximum**
+- After 3 attempts, STOP and report the current status
+- Do NOT keep trying indefinitely - some strategies simply don't work
+- Track: Attempt 1 (fix obvious) → Attempt 2 (try alternative) → Attempt 3 (final, then report)
+
+### Step 1: Save portfolio.py
+Save final Portfolio class to workspace using Write tool (NOT Jupyter).
+
+### Step 2: Run Backtest Script
+```bash
+python .claude/skills/finter-portfolio/scripts/backtest_runner.py --code portfolio.py --universe us_stock
+```
+- Validates portfolio weights and runs backtest
+- If validation fails → fix portfolio.py and re-run
+- Generates: `backtest_summary.csv`, `backtest_stats.csv`
+
+### Step 3: Generate Chart
+```bash
+python .claude/skills/finter-portfolio/scripts/chart_generator.py --summary backtest_summary.csv --stats backtest_stats.csv
+```
+- Generates: `chart.png`
+
+### Step 4: Generate Info
+```bash
+python .claude/skills/finter-portfolio/scripts/info_generator.py \
+    --title "Portfolio Name" \
+    --summary "One-line description" \
+    --category composite \
+    --universe us_stock \
+    --investable \
+    --evaluation "Performance vs equal weight baseline" \
+    --lessons "Key learnings from optimization"
+```
+- **--title**: English only, max 34 chars
+- **--category**: momentum|value|quality|growth|size|low_vol|technical|macro|stat_arb|event|ml|composite
+- **--universe**: kr_stock|us_stock|vn_stock|id_stock|us_etf
+- **--investable** or **--not-investable**: Production ready vs experimental
+- Generates: `info.json`
+
+### Step 5: Final Summary
+Add ONE markdown cell summarizing:
+- Portfolio performance vs equal weight baseline
+- Risk-adjusted metrics comparison
+- Suggested improvements
+
+**⚠️ Task is NOT complete until all 5 steps are done!**

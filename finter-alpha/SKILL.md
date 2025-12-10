@@ -68,16 +68,16 @@ class Alpha(BaseAlpha):
 
 **Mistake 4: Renaming DataFrame columns**
 ```python
-# ❌ WRONG - Column 이름을 바꾸면 Simulator가 종목을 인식 못함
+# ❌ WRONG - Renaming columns breaks Simulator (can't match symbols)
 nvda_id = '11776801'
 aapl_id = '00169001'
 close = cf.get_df("price_close")[[nvda_id, aapl_id]]
-close.columns = ['NVDA', 'AAPL']  # 절대 금지!
+close.columns = ['NVDA', 'AAPL']  # NEVER do this!
 
-# ✅ CORRECT - Finter ID(column)를 그대로 유지
+# ✅ CORRECT - Keep Finter ID columns as-is
 close = cf.get_df("price_close")[[nvda_id, aapl_id]]
-# columns: ['11776801', '00169001'] 그대로 사용
-positions = ...  # 동일한 column 구조 유지해야 Simulator 작동
+# columns: ['11776801', '00169001'] - keep original IDs
+positions = ...  # Same column structure required for Simulator
 ```
 
 ## 📋 Workflow (DATA FIRST)
@@ -86,12 +86,14 @@ positions = ...  # 동일한 column 구조 유지해야 Simulator 작동
 2. **Analyze Patterns**: Check distributions, correlations, data quality
 3. **Reference Examples**: Find closest template from `templates/examples/`
 4. **Implement in Jupyter**: Write Alpha class based on data insights
-5. **Validate Positions**: Run `validate_positions(positions)` — **⛔ 실패 시 4번으로 돌아가서 수정**
-6. **Backtest in Jupyter**: Run Simulator, check metrics — **⛔ 결과 불량 시 4번으로 돌아가서 수정**
-7. **Save alpha.py**: Only after validation & backtest 모두 성공
+5. **Validate Positions**: Run `validate_positions(positions)` — **⛔ If fails, go back to step 4 and fix**
+6. **Backtest in Jupyter**: Run Simulator, check metrics — **⛔ If poor results, go back to step 4 and fix**
+7. **Save alpha.py**: Only after validation & backtest both succeed
+8. **Run Scripts (MANDATORY)**: Execute backtest_runner, chart_generator, info_generator
 
 **⚠️ NEVER write Alpha class before exploring data!**
 **⚠️ NEVER save alpha.py if validation fails or backtest results are poor!**
+**⚠️ NEVER skip running scripts after saving alpha.py!**
 
 ## 🎯 First Steps
 
@@ -221,3 +223,56 @@ close = cf.get_df("price_close")  # Use get_df, not get!
 | raw (crypto) | 1 (BTC only) | **No cf.search()**, 8H candles, see `universe_reference.md` |
 
 **DO NOT SKIP** reading `references/framework.md` - it has critical rules!
+
+## 🚀 FINAL STEPS (MANDATORY - After Successful Backtest)
+
+**⚠️ You MUST complete ALL these steps after saving alpha.py!**
+
+### ⚠️ Improvement Limit
+When backtest fails or results are poor:
+- You may attempt to improve the alpha code **UP TO 3 TIMES maximum**
+- After 3 attempts, STOP and report the current status
+- Do NOT keep trying indefinitely - some strategies simply don't work
+- Track: Attempt 1 (fix obvious) → Attempt 2 (try alternative) → Attempt 3 (final, then report)
+
+### Step 1: Save alpha.py
+Save final Alpha class to workspace using Write tool (NOT Jupyter).
+
+### Step 2: Run Backtest Script
+```bash
+python .claude/skills/finter-alpha/scripts/backtest_runner.py --code alpha.py --universe kr_stock
+```
+- Includes validation (path independence, trading days index)
+- If validation fails → fix alpha.py and re-run
+- Generates: `backtest_summary.csv`, `backtest_stats.csv`
+
+### Step 3: Generate Chart
+```bash
+python .claude/skills/finter-alpha/scripts/chart_generator.py --summary backtest_summary.csv --stats backtest_stats.csv
+```
+- Generates: `chart.png`
+
+### Step 4: Generate Info
+```bash
+python .claude/skills/finter-alpha/scripts/info_generator.py \
+    --title "Strategy Name" \
+    --summary "One-line description" \
+    --category momentum \
+    --universe kr_stock \
+    --investable \
+    --evaluation "Performance analysis and market conditions" \
+    --lessons "Key learnings from development"
+```
+- **--title**: English only, max 34 chars
+- **--category**: momentum|value|quality|growth|size|low_vol|technical|macro|stat_arb|event|ml|composite
+- **--universe**: kr_stock|us_stock|vn_stock|id_stock|us_etf|btcusdt_spot_binance
+- **--investable** or **--not-investable**: Production ready vs experimental
+- Generates: `info.json`
+
+### Step 5: Final Summary
+Add ONE markdown cell summarizing:
+- Strategy performance
+- Why it works/doesn't work
+- Suggested next steps
+
+**⚠️ Task is NOT complete until all 5 steps are done!**
