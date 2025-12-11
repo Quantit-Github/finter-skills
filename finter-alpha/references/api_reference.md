@@ -225,10 +225,22 @@ print(f"Hit Ratio: {stats['Hit Ratio (%)']:.2f}%")
 # Daily data (pd.DataFrame)
 summary = result.summary
 
-nav = summary['nav']                # Net asset value (starts at 1000)
-daily_returns = summary['daily_return']  # Daily returns
-costs = summary['cost']             # Transaction costs
-cumulative_pnl = summary['cumulative_pnl']  # Cumulative P&L
+nav = summary['nav']                    # Net asset value (starts at 1000)
+daily_returns = summary['daily_return'] # Daily returns
+costs = summary['cost']                 # Transaction costs (fee + tax)
+slippage = summary['slippage']          # Slippage costs
+target_turnover = summary['target_turnover']  # Daily turnover ratio (1.0 = 100% of AUM)
+
+# Turnover ratio calculation (annualized)
+# target_turnover is already a ratio (1.0 = 100% of AUM)
+avg_daily_turnover = target_turnover.mean()
+annual_turnover_ratio = avg_daily_turnover * 252  # e.g., 0.05 daily → 12.6x annual
+
+# Cost vs Return analysis
+avg_aum = summary['aum'].mean()
+total_cost = costs.sum() + slippage.sum()
+gross_return = (nav.iloc[-1] / nav.iloc[0] - 1) * 100
+cost_drag = (total_cost / avg_aum) * 100  # Cost as % of AUM
 
 # IMPORTANT: NAV always starts at 1000
 # Final NAV = 1000 * (1 + Total Return / 100)

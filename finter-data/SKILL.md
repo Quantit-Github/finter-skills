@@ -294,7 +294,10 @@ finter_id = result.index[0]  # 12170 (ID is in INDEX, not column!)
 ```python
 # Price and volume data
 close = cf.get_df('price_close')
-volume = cf.get_df('trading_volume')
+
+# Volume: Use cf.search('volume') to find exact name!
+# kr_stock/id_stock: 'volume_sum'  |  us_stock/us_etf: 'trading_volume'
+volume = cf.get_df('volume_sum')  # kr_stock example
 
 # Returns pandas DataFrame (dates × stocks)
 print(close.shape)  # (dates, stocks)

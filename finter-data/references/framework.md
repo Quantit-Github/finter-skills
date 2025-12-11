@@ -165,7 +165,8 @@ close = cf.get_df('price_close')  # Returns pandas DataFrame
 
 # Multiple items (load separately)
 close = cf.get_df('price_close')
-volume = cf.get_df('trading_volume')
+# Volume: kr_stock/id_stock='volume_sum', us_stock/us_etf='trading_volume'
+volume = cf.get_df('volume_sum')  # kr_stock example
 ```
 
 **Returns:** pandas DataFrame

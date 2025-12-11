@@ -80,20 +80,35 @@ close = cf.get_df("price_close")[[nvda_id, aapl_id]]
 positions = ...  # Same column structure required for Simulator
 ```
 
+**Mistake 5: Date slicing without str() conversion**
+```python
+# ❌ WRONG - Integer dates don't work with DatetimeIndex.loc[]
+return positions.shift(1).loc[start:end]  # KeyError or wrong results!
+
+# ✅ CORRECT - Convert to string for DatetimeIndex slicing
+return positions.shift(1).loc[str(start):str(end)]  # Works correctly!
+```
+
 ## 📋 Workflow (DATA FIRST)
 
 1. **Explore Data FIRST**: Load sample data in Jupyter, visualize, test library functions
 2. **Analyze Patterns**: Check distributions, correlations, data quality
 3. **Reference Examples**: Find closest template from `templates/examples/`
 4. **Implement in Jupyter**: Write Alpha class based on data insights
-5. **Validate Positions**: Run `validate_positions(positions)` — **⛔ If fails, go back to step 4 and fix**
-6. **Backtest in Jupyter**: Run Simulator, check metrics — **⛔ If poor results, go back to step 4 and fix**
-7. **Save alpha.py**: Only after validation & backtest both succeed
+5. **Validate Positions**: Run `validate_positions(positions)` to check format
+6. **Backtest in Jupyter**: Run Simulator, record metrics
+7. **Save alpha.py**: Save the implementation regardless of backtest results
 8. **Run Scripts (MANDATORY)**: Execute backtest_runner, chart_generator, info_generator
+9. **Report Results**: Summarize findings and let Fund Manager decide next steps
 
 **⚠️ NEVER write Alpha class before exploring data!**
-**⚠️ NEVER save alpha.py if validation fails or backtest results are poor!**
 **⚠️ NEVER skip running scripts after saving alpha.py!**
+
+**⛔ NO SELF-FEEDBACK RULE:**
+- Complete ONE implementation cycle, then STOP
+- Do NOT retry based on backtest results
+- Do NOT judge if results are "good" or "poor"
+- Report what you built and let Fund Manager evaluate
 
 ## 🎯 First Steps
 
@@ -126,17 +141,32 @@ result = simulator.run(position=positions)
 
 # Step 3: Check results (use EXACT field names!)
 stats = result.statistics
+summary = result.summary
+
 print(f"Total Return: {stats['Total Return (%)']:.2f}%")
 print(f"Sharpe Ratio: {stats['Sharpe Ratio']:.2f}")
 print(f"Max Drawdown: {stats['Max Drawdown (%)']:.2f}%")
 print(f"Hit Ratio: {stats['Hit Ratio (%)']:.2f}%")
 
-# Step 4: Visualize NAV curve
-result.summary['nav'].plot(title='NAV (starts at 1000)', figsize=(12,6))
+# Step 4: Turnover & Cost Analysis (MANDATORY)
+# target_turnover is already a ratio (1.0 = 100% of AUM)
+avg_daily_turnover = summary['target_turnover'].mean()
+annual_turnover = avg_daily_turnover * 252  # Annualized turnover ratio
+total_cost = summary['cost'].sum() + summary['slippage'].sum()
+avg_aum = summary['aum'].mean()
+cost_drag = (total_cost / avg_aum) * 100
+
+print(f"Annual Turnover: {annual_turnover:.1%}")
+print(f"Total Cost: {total_cost:,.0f}")
+print(f"Cost Drag: {cost_drag:.2f}% of AUM")
+
+# Step 5: Visualize NAV curve
+summary['nav'].plot(title='NAV (starts at 1000)', figsize=(12,6))
 
 # IMPORTANT:
 # - NAV always starts at 1000 (not 1 or 1e8!)
 # - DO NOT use 'Annual Return (%)' - it doesn't exist!
+# - Turnover & Cost are ALREADY reflected in NAV (net return)
 ```
 
 **Available `result.statistics` fields (18 total):**
@@ -224,16 +254,9 @@ close = cf.get_df("price_close")  # Use get_df, not get!
 
 **DO NOT SKIP** reading `references/framework.md` - it has critical rules!
 
-## 🚀 FINAL STEPS (MANDATORY - After Successful Backtest)
+## 🚀 FINAL STEPS (MANDATORY - After Backtest)
 
 **⚠️ You MUST complete ALL these steps after saving alpha.py!**
-
-### ⚠️ Improvement Limit
-When backtest fails or results are poor:
-- You may attempt to improve the alpha code **UP TO 3 TIMES maximum**
-- After 3 attempts, STOP and report the current status
-- Do NOT keep trying indefinitely - some strategies simply don't work
-- Track: Attempt 1 (fix obvious) → Attempt 2 (try alternative) → Attempt 3 (final, then report)
 
 ### Step 1: Save alpha.py
 Save final Alpha class to workspace using Write tool (NOT Jupyter).
@@ -256,23 +279,56 @@ python .claude/skills/finter-alpha/scripts/chart_generator.py --summary backtest
 ```bash
 python .claude/skills/finter-alpha/scripts/info_generator.py \
     --title "Strategy Name" \
-    --summary "One-line description" \
+    --summary "One-line description of signal logic" \
     --category momentum \
     --universe kr_stock \
-    --investable \
-    --evaluation "Performance analysis and market conditions" \
-    --lessons "Key learnings from development"
+    --not-investable \
+    --evaluation "Backtest completed" \
+    --lessons "Implementation completed"
 ```
 - **--title**: English only, max 34 chars
+- **--summary**: OBJECTIVE description of signal (e.g., "20-day momentum, top 10% equal weight")
 - **--category**: momentum|value|quality|growth|size|low_vol|technical|macro|stat_arb|event|ml|composite
 - **--universe**: kr_stock|us_stock|vn_stock|id_stock|us_etf|btcusdt_spot_binance
-- **--investable** or **--not-investable**: Production ready vs experimental
+- **--not-investable**: ALWAYS use this (Fund Manager decides investability)
+- **--evaluation**: Just say "Backtest completed" (Fund Manager evaluates)
+- **--lessons**: Just say "Implementation completed" (Fund Manager extracts lessons)
 - Generates: `info.json`
 
-### Step 5: Final Summary
-Add ONE markdown cell summarizing:
-- Strategy performance
-- Why it works/doesn't work
-- Suggested next steps
+### Step 5: Final Summary (FACTS ONLY)
+Add ONE markdown cell with **OBJECTIVE FACTS ONLY**:
+
+```markdown
+## Results
+
+| Metric | Value |
+|--------|-------|
+| Total Return | X% |
+| Sharpe Ratio | X.XX |
+| Max Drawdown | X% |
+| Annual Turnover | X.Xx |
+| Cost Drag | X.XX% |
+
+## Implementation
+- Universe: kr_stock
+- Period: 20200101 - 20241210
+- Signal: [brief description]
+- Rebalancing: daily
+
+## Files
+- alpha.py
+- backtest_stats.csv
+- chart.png
+- info.json
+```
+
+**⛔ DO NOT INCLUDE:**
+- "Strategy failed/succeeded"
+- "This works because..."
+- "Suggested improvements..."
+- "The reason for poor results..."
+- Any subjective analysis or recommendations
+
+**Fund Manager will evaluate results and provide feedback.**
 
 **⚠️ Task is NOT complete until all 5 steps are done!**

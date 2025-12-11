@@ -102,6 +102,38 @@ def print_metrics(stats, title="Performance Metrics"):
             print(f"    {metric:.<48} {value:>12.2f}")
 
 
+def print_turnover_analysis(summary, title="Turnover & Cost Analysis"):
+    """Print turnover and cost analysis from backtest summary"""
+    print_section(title)
+
+    # Calculate turnover metrics
+    # target_turnover is already a ratio (1.0 = 100% of AUM)
+    avg_daily_turnover = summary['target_turnover'].mean()
+    annual_turnover = avg_daily_turnover * 252  # Annualized turnover ratio
+
+    # Calculate cost metrics
+    avg_aum = summary['aum'].mean()
+    total_cost = summary['cost'].sum()
+    total_slippage = summary['slippage'].sum()
+    total_trading_cost = total_cost + total_slippage
+    cost_drag = (total_trading_cost / avg_aum) * 100 if avg_aum > 0 else 0
+
+    print(f"  {'Annual Turnover':.<50} {annual_turnover:>12.1%}")
+    print(f"  {'Total Trading Cost':.<50} {total_trading_cost:>12,.0f}")
+    print(f"    {'- Fee & Tax':.<48} {total_cost:>12,.0f}")
+    print(f"    {'- Slippage':.<48} {total_slippage:>12,.0f}")
+    print(f"  {'Cost Drag (% of AUM)':.<50} {cost_drag:>12.2f}%")
+
+    # Return for saving to CSV
+    return {
+        'Annual Turnover (%)': annual_turnover * 100,  # Store as percentage
+        'Total Trading Cost': total_trading_cost,
+        'Fee & Tax': total_cost,
+        'Slippage': total_slippage,
+        'Cost Drag (%)': cost_drag,
+    }
+
+
 def validate_positions(positions):
     """
     Validate position DataFrame for common issues.
@@ -270,6 +302,9 @@ def run_backtest(
     # Print results
     print_metrics(result.statistics)
 
+    # Print turnover & cost analysis
+    turnover_stats = print_turnover_analysis(result.summary)
+
     # Save results
     print_section("Saving Results")
 
@@ -283,9 +318,13 @@ def run_backtest(
     print(f"  ✓ Summary saved: {summary_file}")
     print("    Note: NAV starts at 1000 (initial portfolio value)")
 
-    # Save statistics
+    # Save statistics (including turnover analysis)
     stats_file = out_dir / "backtest_stats.csv"
-    result.statistics.to_csv(stats_file)
+    # Combine performance stats with turnover stats
+    all_stats = result.statistics.copy()
+    for key, value in turnover_stats.items():
+        all_stats[key] = value
+    all_stats.to_csv(stats_file)
     print(f"  ✓ Statistics saved: {stats_file}")
 
     # Generate chart

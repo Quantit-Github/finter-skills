@@ -60,6 +60,7 @@ def get(self, start, end):
 python scripts/alpha_validator.py --code alpha.py --universe kr_stock
 ```
 
+
 ### 3. Position Constraint Violations
 
 **Problem**: Row sums exceed 1e8 (total AUM).

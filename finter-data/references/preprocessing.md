@@ -444,7 +444,9 @@ close_clean = close.ffill().bfill()  # Missing values
 close_final = winsorize(close_clean, 0.01, 0.99)  # Outliers
 
 # Volume (log transform often helps)
-volume = cf.get_df('trading_volume')
+# Use cf.search('volume') to find exact name for your universe
+# kr_stock/id_stock: 'volume_sum'  |  us_stock/us_etf: 'trading_volume'
+volume = cf.get_df('volume_sum')  # kr_stock example
 volume_clean = volume.ffill().bfill()
 log_volume = np.log1p(volume_clean)  # log(1 + x) handles 0
 volume_final = zscore(log_volume)  # Normalize
