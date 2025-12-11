@@ -196,6 +196,8 @@ def run_backtest(
     """
     Run complete backtest workflow.
 
+    Validation runs BEFORE backtest - files are only generated if validation passes.
+
     Parameters
     ----------
     alpha_file : str
@@ -281,6 +283,48 @@ def run_backtest(
 
     avg_stocks_per_day = (positions > 0).sum(axis=1).mean()
     print(f"    Average stocks per day: {avg_stocks_per_day:.1f}")
+
+    # Run alpha validation (path independence, trading days) BEFORE backtest
+    print_section("Alpha Validation")
+    try:
+        from alpha_validator import (
+            check_path_independence,
+            check_trading_days,
+            load_alpha_from_file as load_alpha_validator,
+        )
+
+        # Map market_type to universe for validation
+        universe_map = {
+            "btcusdt_spot_binance": "raw",
+        }
+        val_universe = universe_map.get(universe, universe)
+
+        AlphaClassForValidation = load_alpha_validator(alpha_file)
+
+        # Check 1: Path Independence
+        print("\n  1. Path Independence")
+        passed1, msg1, _ = check_path_independence(AlphaClassForValidation)
+        status1 = "✓ PASS" if passed1 else "✗ FAIL"
+        print(f"     {status1} - {msg1}")
+
+        # Check 2: Trading Days
+        print("\n  2. Trading Days Index")
+        passed2, msg2, _ = check_trading_days(AlphaClassForValidation, val_universe)
+        status2 = "✓ PASS" if passed2 else "✗ FAIL"
+        print(f"     {status2} - {msg2}")
+
+        if not (passed1 and passed2):
+            print("\n  ✗ Validation FAILED - fix alpha.py before backtest!")
+            print("    No output files generated.")
+            return False
+        else:
+            print("\n  ✓ All validations passed!")
+
+    except ImportError:
+        print("  ⚠️  alpha_validator.py not found, skipping validation")
+    except Exception as e:
+        print(f"  ⚠️  Validation error: {e}")
+        print("    Continuing with backtest...")
 
     # Run backtest
     print_section("Running Backtest")
@@ -416,15 +460,9 @@ Examples:
         help="Skip chart PNG generation",
     )
 
-    parser.add_argument(
-        "--no-validate",
-        action="store_true",
-        help="Skip alpha validation (path independence, trading days)",
-    )
-
     args = parser.parse_args()
 
-    # Run backtest
+    # Run backtest (validation runs BEFORE backtest, files only generated on success)
     success = run_backtest(
         alpha_file=args.code,
         start_date=args.start,
@@ -433,47 +471,6 @@ Examples:
         output_dir=args.output_dir,
         generate_chart=not args.no_chart,
     )
-
-    # Run validation (default: enabled, skip with --no-validate)
-    if success and not args.no_validate:
-        print_section("Running Validation")
-        try:
-            from alpha_validator import (
-                check_path_independence,
-                check_trading_days,
-                load_alpha_from_file,
-            )
-
-            # Map market_type to universe for validation
-            universe_map = {
-                "btcusdt_spot_binance": "raw",
-            }
-            val_universe = universe_map.get(args.universe, args.universe)
-
-            AlphaClass = load_alpha_from_file(args.code)
-
-            # Check 1: Path Independence
-            print("\n  1. Path Independence")
-            passed1, msg1, _ = check_path_independence(AlphaClass)
-            status1 = "✓ PASS" if passed1 else "✗ FAIL"
-            print(f"     {status1} - {msg1}")
-
-            # Check 2: Trading Days
-            print("\n  2. Trading Days Index")
-            passed2, msg2, _ = check_trading_days(AlphaClass, val_universe)
-            status2 = "✓ PASS" if passed2 else "✗ FAIL"
-            print(f"     {status2} - {msg2}")
-
-            if not (passed1 and passed2):
-                print("\n  ⚠️  Validation failed - check for look-ahead bias!")
-                success = False
-            else:
-                print("\n  ✓ All validations passed!")
-
-        except ImportError:
-            print("  ⚠️  alpha_validator.py not found, skipping validation")
-        except Exception as e:
-            print(f"  ⚠️  Validation error: {e}")
 
     sys.exit(0 if success else 1)
 

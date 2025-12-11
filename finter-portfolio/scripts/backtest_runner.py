@@ -164,6 +164,8 @@ def run_backtest(
     """
     Run complete backtest workflow.
 
+    Validation runs BEFORE backtest - files are only generated if validation passes.
+
     Parameters
     ----------
     portfolio_file : str
@@ -249,6 +251,55 @@ def run_backtest(
 
     avg_assets_per_day = (positions > 0).sum(axis=1).mean()
     print(f"    Average assets per day: {avg_assets_per_day:.1f}")
+
+    # Run portfolio validation (path independence, trading days, weight sum) BEFORE backtest
+    print_section("Portfolio Validation")
+    try:
+        from portfolio_validator import (
+            check_path_independence,
+            check_trading_days,
+            check_weight_sum,
+            load_portfolio_from_file as load_portfolio_validator,
+        )
+
+        # Map market_type to universe for validation
+        universe_map = {
+            "btcusdt_spot_binance": "raw",
+        }
+        val_universe = universe_map.get(universe, universe)
+
+        PortfolioClassForValidation = load_portfolio_validator(portfolio_file)
+
+        # Check 1: Path Independence
+        print("\n  1. Path Independence")
+        passed1, msg1, _ = check_path_independence(PortfolioClassForValidation)
+        status1 = "✓ PASS" if passed1 else "✗ FAIL"
+        print(f"     {status1} - {msg1}")
+
+        # Check 2: Trading Days
+        print("\n  2. Trading Days Index")
+        passed2, msg2, _ = check_trading_days(PortfolioClassForValidation, val_universe)
+        status2 = "✓ PASS" if passed2 else "✗ FAIL"
+        print(f"     {status2} - {msg2}")
+
+        # Check 3: Weight Sum (Portfolio-specific)
+        print("\n  3. Weight Sum (~1.0)")
+        passed3, msg3, _ = check_weight_sum(PortfolioClassForValidation)
+        status3 = "✓ PASS" if passed3 else "✗ FAIL"
+        print(f"     {status3} - {msg3}")
+
+        if not (passed1 and passed2 and passed3):
+            print("\n  ✗ Validation FAILED - fix portfolio.py before backtest!")
+            print("    No output files generated.")
+            return False
+        else:
+            print("\n  ✓ All validations passed!")
+
+    except ImportError:
+        print("  ⚠️  portfolio_validator.py not found, skipping validation")
+    except Exception as e:
+        print(f"  ⚠️  Validation error: {e}")
+        print("    Continuing with backtest...")
 
     # Run backtest
     print_section("Running Backtest")
@@ -377,15 +428,9 @@ Examples:
         help="Skip chart PNG generation",
     )
 
-    parser.add_argument(
-        "--no-validate",
-        action="store_true",
-        help="Skip portfolio validation (path independence, trading days, weight sum)",
-    )
-
     args = parser.parse_args()
 
-    # Run backtest
+    # Run backtest (validation runs BEFORE backtest, files only generated on success)
     success = run_backtest(
         portfolio_file=args.code,
         start_date=args.start,
@@ -394,54 +439,6 @@ Examples:
         output_dir=args.output_dir,
         generate_chart=not args.no_chart,
     )
-
-    # Run validation (default: enabled, skip with --no-validate)
-    if success and not args.no_validate:
-        print_section("Running Validation")
-        try:
-            from portfolio_validator import (
-                check_path_independence,
-                check_trading_days,
-                check_weight_sum,
-                load_portfolio_from_file,
-            )
-
-            # Map market_type to universe for validation
-            universe_map = {
-                "btcusdt_spot_binance": "raw",
-            }
-            val_universe = universe_map.get(args.universe, args.universe)
-
-            PortfolioClass = load_portfolio_from_file(args.code)
-
-            # Check 1: Path Independence
-            print("\n  1. Path Independence")
-            passed1, msg1, _ = check_path_independence(PortfolioClass)
-            status1 = "✓ PASS" if passed1 else "✗ FAIL"
-            print(f"     {status1} - {msg1}")
-
-            # Check 2: Trading Days
-            print("\n  2. Trading Days Index")
-            passed2, msg2, _ = check_trading_days(PortfolioClass, val_universe)
-            status2 = "✓ PASS" if passed2 else "✗ FAIL"
-            print(f"     {status2} - {msg2}")
-
-            # Check 3: Weight Sum (Portfolio-specific)
-            print("\n  3. Weight Sum (~1.0)")
-            passed3, msg3, _ = check_weight_sum(PortfolioClass)
-            status3 = "✓ PASS" if passed3 else "✗ FAIL"
-            print(f"     {status3} - {msg3}")
-
-            if not (passed1 and passed2 and passed3):
-                print("\n  ⚠️  Validation failed - check for issues!")
-                success = False
-            else:
-                print("\n  ✓ All validations passed!")
-
-        except ImportError:
-            print("  ⚠️  portfolio_validator.py not found, skipping validation")
-        except Exception as e:
-            print(f"  ⚠️  Validation error: {e}")
 
     sys.exit(0 if success else 1)
 
