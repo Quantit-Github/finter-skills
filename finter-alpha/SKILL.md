@@ -10,12 +10,13 @@ Develop quantitative trading alpha strategies using the Finter framework.
 ## ⚠️ CRITICAL RULES (MUST FOLLOW)
 
 **Alpha Class Requirements:**
-1. **Class name MUST be `Alpha`** (not CustomStrategy, MyAlpha, etc.)
+1. **Class name MUST be `Alpha`** (not CustomStrategy, MyAlpha, SectorMomentumAlpha, etc.)
 2. **Method name MUST be `get`** (not generate, calculate, etc.)
 3. **Method signature**: `def get(self, start: int, end: int, **kwargs) -> pd.DataFrame`
 4. **ALWAYS shift positions**: `return positions.shift(1)` to avoid look-ahead bias
 5. **Position values = MONEY AMOUNT** (1e8 = 100% AUM), NOT signals (1/-1)!
 6. **Date buffer**: Use `get_start_date(start, buffer)`, NEVER `start - 300`!
+7. **ALWAYS use fillna(0)**: `return positions.shift(1).fillna(0)` to avoid "All NaN" error on submit
 
 **Common Mistakes:**
 
@@ -61,18 +62,31 @@ def get_start_date(start: int, buffer: int = 365) -> int:
 
 **Mistake 4: Wrong class/method names**
 ```python
-# ❌ WRONG
-class MyAlpha(BaseAlpha):
+# ❌ WRONG - Class name must be exactly "Alpha"
+class MyAlpha(BaseAlpha):           # WRONG: MyAlpha
+class SectorMomentumAlpha(BaseAlpha):  # WRONG: SectorMomentumAlpha
+class MomentumStrategy(BaseAlpha):     # WRONG: MomentumStrategy
     def generate(self, start, end):  # Wrong method name!
-        return positions  # Missing shift!
+        return positions  # Missing shift and fillna!
 
 # ✅ CORRECT
-class Alpha(BaseAlpha):
+class Alpha(BaseAlpha):  # MUST be "Alpha"
     def get(self, start: int, end: int, **kwargs) -> pd.DataFrame:
-        return positions.shift(1)  # Correct!
+        return positions.shift(1).fillna(0)  # Correct!
 ```
 
-**Mistake 5: Renaming DataFrame columns**
+**Mistake 5: Missing fillna(0) causes "All NaN detected" error**
+```python
+# ❌ WRONG - Early rows after shift() are all NaN
+positions = positions.shift(1)
+return positions  # First row is all NaN → submit fails!
+
+# ✅ CORRECT - Fill NaN with 0 (cash position)
+positions = positions.shift(1)
+return positions.fillna(0)  # All-cash on first day, no error
+```
+
+**Mistake 6: Renaming DataFrame columns**
 ```python
 # ❌ WRONG - Renaming columns breaks Simulator (can't match symbols)
 nvda_id = '11776801'
@@ -86,7 +100,7 @@ close = cf.get_df("price_close")[[nvda_id, aapl_id]]
 positions = ...  # Same column structure required for Simulator
 ```
 
-**Mistake 6: Date slicing without str() conversion**
+**Mistake 7: Date slicing without str() conversion**
 ```python
 # ❌ WRONG - Integer dates don't work with DatetimeIndex.loc[]
 return positions.shift(1).loc[start:end]  # KeyError or wrong results!
@@ -95,7 +109,7 @@ return positions.shift(1).loc[start:end]  # KeyError or wrong results!
 return positions.shift(1).loc[str(start):str(end)]  # Works correctly!
 ```
 
-**Mistake 7: Not aligning to trading_days (for resample)**
+**Mistake 8: Not aligning to trading_days (for resample)**
 ```python
 # ❌ WRONG - resample('ME') creates 2024-03-31 (Sunday), not in trading_days
 # ❌ WRONG - naive ffill destroys intentional NaN (delisted stocks)

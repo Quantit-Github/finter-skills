@@ -170,6 +170,16 @@ def validate_positions(positions):
             f"Contains {nan_count} NaN values ({nan_pct:.2f}% of total)"
         )
 
+    # Check for all-NaN rows (will cause "All NaN detected" error on Finter submit)
+    all_nan_rows = positions.isna().all(axis=1)
+    if all_nan_rows.any():
+        nan_row_count = all_nan_rows.sum()
+        first_dates = positions.index[all_nan_rows].tolist()[:3]
+        issues["errors"].append(
+            f"Found {nan_row_count} rows where ALL values are NaN. "
+            f"Use fillna(0) for cash positions. First dates: {first_dates}"
+        )
+
     # Check for zero positions
     zero_positions = (row_sums == 0).sum()
     if zero_positions > 0:
@@ -284,10 +294,11 @@ def run_backtest(
     avg_stocks_per_day = (positions > 0).sum(axis=1).mean()
     print(f"    Average stocks per day: {avg_stocks_per_day:.1f}")
 
-    # Run alpha validation (path independence, trading days) BEFORE backtest
+    # Run alpha validation (class name, path independence, trading days) BEFORE backtest
     print_section("Alpha Validation")
     try:
         from alpha_validator import (
+            check_class_name,
             check_path_independence,
             check_trading_days,
             load_alpha_from_file as load_alpha_validator,
@@ -298,6 +309,14 @@ def run_backtest(
             "btcusdt_spot_binance": "raw",
         }
         val_universe = universe_map.get(universe, universe)
+
+        # Check 0: Class Name
+        print("\n  0. Class Name")
+        passed0, msg0, details0 = check_class_name(alpha_file)
+        status0 = "✓ PASS" if passed0 else "✗ FAIL"
+        print(f"     {status0} - {msg0}")
+        if not passed0 and "wrong_names" in details0:
+            print(f"     Fix: rename 'class {details0['wrong_names'][0]}' to 'class Alpha'")
 
         AlphaClassForValidation = load_alpha_validator(alpha_file)
 
@@ -313,7 +332,7 @@ def run_backtest(
         status2 = "✓ PASS" if passed2 else "✗ FAIL"
         print(f"     {status2} - {msg2}")
 
-        if not (passed1 and passed2):
+        if not (passed0 and passed1 and passed2):
             print("\n  ✗ Validation FAILED - fix alpha.py before backtest!")
             print("    No output files generated.")
             return False
