@@ -77,8 +77,8 @@ class Alpha(BaseAlpha):
         # IMPLEMENT YOUR STRATEGY LOGIC HERE
         # ==========================================
 
-        # Example: Simple momentum strategy
-        momentum = close_price.pct_change(param1)
+        # Example: Simple momentum strategy (always use fill_method=None!)
+        momentum = close_price.pct_change(param1, fill_method=None)
 
         # Rank stocks
         rank = momentum.rank(pct=True, axis=1)

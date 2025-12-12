@@ -14,7 +14,7 @@ def get(self, start, end):
     from helpers import get_start_date
     cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
     # Forgot to shift - using today's momentum to trade today!
     return momentum.loc[str(start):str(end)]
 
@@ -23,7 +23,7 @@ def get(self, start, end):
     from helpers import get_start_date
     cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
     # CRITICAL: Always shift positions to avoid look-ahead bias
     return momentum.shift(1).loc[str(start):str(end)]
 ```
@@ -60,8 +60,42 @@ def get(self, start, end):
 python scripts/alpha_validator.py --code alpha.py --universe kr_stock
 ```
 
+### 3. pct_change() Default fill_method Problem
 
-### 3. Position Constraint Violations
+**Problem**: `pct_change()` uses `fill_method='pad'` by default, which pads NaN values. This causes **path dependency** with delisted stocks.
+
+```python
+# ❌ WRONG - Default fill_method='pad' causes path dependency
+def get(self, start, end):
+    close = cf.get_df("price_close")
+    momentum = close.pct_change(20)  # fill_method='pad' by default!
+    return momentum.shift(1).loc[str(start):str(end)]
+
+# For delisted stock (100, 110, 120, NaN, NaN, NaN, ...):
+# - start=2024-01-01 (includes pre-delisting): pads 120 → returns 0.0
+# - start=2024-06-01 (all NaN): nothing to pad → returns NaN
+# Same date, different values = PATH DEPENDENT!
+
+# ✓ CORRECT - Always use fill_method=None
+def get(self, start, end):
+    close = cf.get_df("price_close")
+    momentum = close.pct_change(20, fill_method=None)  # Path independent
+    return momentum.shift(1).loc[str(start):str(end)]
+```
+
+**Why it matters**:
+- Delisted/suspended stocks have NaN after delisting
+- `fill_method='pad'` fills NaN with last valid price
+- When `start` includes pre-delisting data: pad works → returns 0.0
+- When `start` is after delisting: all NaN, nothing to pad → returns NaN
+- **Same date, different values depending on `start`** = Path Dependent!
+
+**How to Detect:**
+- Run alpha with different `start` dates, compare overlapping period
+- Delisted stocks show 0.0 in one run, NaN in another
+
+
+### 4. Position Constraint Violations
 
 **Problem**: Row sums exceed 1e8 (total AUM).
 
@@ -77,7 +111,7 @@ def get(self, start, end):
     from helpers import get_start_date
     cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
 
     signals = momentum > 0
     # Divide by number of positions, 1e8 == 100% of AUM
@@ -93,7 +127,7 @@ from helpers import validate_positions
 validate_positions(positions)
 ```
 
-### 4. Insufficient Data Buffer
+### 5. Insufficient Data Buffer
 
 **Problem**: Not loading enough historical data for calculations.
 
@@ -104,18 +138,18 @@ from helpers import get_start_date
 def get(self, start, end):
     cf = ContentFactory("kr_stock", start, end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(100)  # First 100 days will be NaN!
+    momentum = close.pct_change(100, fill_method=None)  # First 100 days will be NaN!
 
 # ✓ CORRECT - Load with proper buffer using get_start_date()
 def get(self, start, end):
     # Rule of thumb: buffer = 2x longest lookback + 250 days
     cf = ContentFactory("kr_stock", get_start_date(start, 100 * 2 + 250), end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(100)
+    momentum = close.pct_change(100, fill_method=None)
     return momentum.shift(1).loc[str(start):str(end)]
 ```
 
-### 5. NaN Handling
+### 6. NaN Handling
 
 **Problem**: NaN values propagate through calculations.
 
@@ -125,7 +159,7 @@ def get(self, start, end):
     from helpers import get_start_date
     cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
     # If any NaN, entire row becomes NaN after division
     positions = momentum.div(momentum.sum(axis=1), axis=0) * 1e8
 
@@ -134,7 +168,7 @@ def get(self, start, end):
     from helpers import get_start_date
     cf = ContentFactory("kr_stock", get_start_date(start, 20 * 2 + 250), end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
 
     # Fill NaN with 0 or drop
     momentum_clean = momentum.fillna(0)
@@ -144,7 +178,7 @@ def get(self, start, end):
     return positions.shift(1).loc[str(start):str(end)]
 ```
 
-### 6. Incorrect Class Name
+### 7. Incorrect Class Name
 
 **Problem**: Class must be named exactly `Alpha`.
 
@@ -161,7 +195,7 @@ class Alpha(BaseAlpha):
     pass
 ```
 
-### 7. Incorrect Symbol Usage
+### 8. Incorrect Symbol Usage
 
 **Problem**: `Symbol` requires instantiation before use.
 
@@ -181,33 +215,22 @@ finter_id = result.index[0]
 
 **Why this happens**: `Symbol` is a class that needs to be initialized with a universe before searching.
 
-### 8. Trading Days Index Mismatch
+### 9. Trading Days Index Mismatch
 
-**Problem**: Position index contains non-trading days (weekends, holidays).
+**Problem**: `resample('ME')` creates month-end dates that may be non-business days (e.g., 2024-03-31 Sunday).
 
 ```python
-# ❌ WRONG - Using calendar dates
-def get(self, start, end):
-    dates = pd.date_range(str(start), str(end), freq='D')  # Includes weekends!
-    positions = pd.DataFrame(index=dates, ...)
-    return positions
+# ❌ WRONG - Direct reindex loses month-end on non-business days
+# ❌ WRONG - Naive ffill destroys intentional NaN (delisted stocks)
 
-# ❌ WRONG - Resample without filtering
-def get(self, start, end):
-    monthly = close.resample('M').last()
-    positions = monthly.reindex(close.index, method='ffill')  # May have gaps
-
-# ✓ CORRECT - Use ContentFactory.trading_days
-def get(self, start, end):
-    cf = ContentFactory(universe, start, end)
-    positions = positions.reindex(cf.trading_days)  # Align to trading days
-    return positions.shift(1).loc[str(start):str(end)]
+# ✓ CORRECT - Protect NaN → expand to daily → filter to trading_days
+positions = positions.fillna(-np.inf)  # Protect delisted NaN
+full_range = pd.date_range(positions.index.min(), cf.trading_days.max(), freq='D')
+positions = positions.reindex(full_range, method='ffill')
+positions = positions.reindex(cf.trading_days).replace(-np.inf, np.nan)
 ```
 
-**Verify with script**:
-```bash
-python scripts/alpha_validator.py --code alpha.py --universe kr_stock --verbose
-```
+**Verify**: `python scripts/alpha_validator.py --code alpha.py --universe kr_stock`
 
 ## Performance Optimization
 
@@ -223,7 +246,7 @@ def get(self, start, end):
     results = []
     for date in close.index:
         row = close.loc[date]
-        momentum = row.pct_change()
+        momentum = row.pct_change(fill_method=None)
         results.append(momentum)
     return pd.DataFrame(results)
 
@@ -234,7 +257,7 @@ def get(self, start, end):
     close = cf.get_df("price_close")
 
     # Operates on entire DataFrame at once
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
     return momentum.shift(1).loc[str(start):str(end)]
 ```
 
@@ -247,11 +270,11 @@ def get(self, start, end):
     cf = ContentFactory("kr_stock", get_start_date(start), end)
     close = cf.get_df("price_close")
 
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
     momentum_rank = momentum.rank(pct=True, axis=1)
 
     # Recalculating momentum again!
-    signals = close.pct_change(20) > 0
+    signals = close.pct_change(20, fill_method=None) > 0
 
 # ✓ EFFICIENT - Calculate once, reuse
 def get(self, start, end):
@@ -259,7 +282,7 @@ def get(self, start, end):
     cf = ContentFactory("kr_stock", get_start_date(start), end)
     close = cf.get_df("price_close")
 
-    momentum = close.pct_change(20)  # Calculate once
+    momentum = close.pct_change(20, fill_method=None)  # Calculate once
     momentum_rank = momentum.rank(pct=True, axis=1)
     signals = momentum > 0  # Reuse calculation
 ```
@@ -304,7 +327,7 @@ def get(self, start, end):
     print(f"Date range: {close.index[0]} to {close.index[-1]}")
     print(f"NaN count: {close.isnull().sum().sum()}")
 
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
 
     # Debug: Check momentum calculation
     print(f"Momentum range: [{momentum.min().min():.4f}, {momentum.max().max():.4f}]")
@@ -365,7 +388,7 @@ print("✓ Sanity checks passed")
 # ❌ UNCLEAR
 def get(self, start, end):
     d = cf.get_df("price_close")
-    r = d.pct_change(20)
+    r = d.pct_change(20, fill_method=None)
     s = r > 0
     p = s * 1e8 / s.sum(axis=1)
     return p.shift(1)
@@ -375,7 +398,7 @@ def get(self, start, end):
     from helpers import get_start_date
     cf = ContentFactory("kr_stock", get_start_date(start), end)
     close = cf.get_df("price_close")
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
     buy_signal = momentum > 0
     positions = buy_signal.div(buy_signal.sum(axis=1), axis=0) * 1e8
     return positions.shift(1).loc[str(start):str(end)]

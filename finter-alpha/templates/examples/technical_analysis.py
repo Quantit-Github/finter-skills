@@ -69,8 +69,8 @@ class Alpha(BaseAlpha):
         )
         close = cf.get_df("price_close")
 
-        # Calculate momentum
-        momentum = close.pct_change(momentum_period)
+        # Calculate momentum (always use fill_method=None for path independence!)
+        momentum = close.pct_change(momentum_period, fill_method=None)
 
         # Rank stocks by momentum
         rank = momentum.rank(pct=True, axis=1)

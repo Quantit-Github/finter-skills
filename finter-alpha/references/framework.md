@@ -65,25 +65,40 @@ def get(self, start: int, end: int, **kwargs) -> pd.DataFrame:
     pass
 ```
 
-### 3. Always Shift Positions
+### 3. Always Use fill_method=None with pct_change()
+
+**CRITICAL**: Default `fill_method='pad'` causes path dependency with delisted stocks:
+
+```python
+# ❌ Wrong - Default pad causes path dependency
+momentum = close.pct_change(20)  # fill_method='pad' by default!
+# Delisted stock: start=2024-01-01 → 0.0, start=2024-06-01 → NaN
+
+# ✓ Correct - Always specify fill_method=None
+momentum = close.pct_change(20, fill_method=None)
+```
+
+**Why it matters**: Delisted stocks have NaN after delisting. `fill_method='pad'` pads with last valid price, but only if that price is in the loaded data. Different `start` dates load different data → same date gets different values.
+
+### 4. Always Shift Positions
 
 **CRITICAL**: Use `.shift(1)` to avoid look-ahead bias:
 
 ```python
 # ❌ Wrong - using same day's signal
 def get(self, start, end):
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
     positions = (momentum > 0).astype(float) * 1e8 / 10
     return positions.loc[str(start):str(end)]  # Look-ahead bias!
 
 # ✓ Correct - using previous day's signal
 def get(self, start, end):
-    momentum = close.pct_change(20)
+    momentum = close.pct_change(20, fill_method=None)
     positions = (momentum > 0).astype(float) * 1e8 / 10
     return positions.shift(1).loc[str(start):str(end)]
 ```
 
-### 4. Load Data with Buffer
+### 5. Load Data with Buffer
 
 Always load extra historical data for calculations:
 
@@ -93,16 +108,27 @@ from helpers import get_start_date
 # ❌ Wrong - insufficient data
 def get(self, start, end):
     cf = ContentFactory("kr_stock", start, end)  # Not enough history
-    momentum = close.pct_change(60)  # Will have NaN at start
+    momentum = close.pct_change(60, fill_method=None)  # Will have NaN at start
 
 # ✓ Correct - load with proper buffer
 def get(self, start, end):
     # Rule of thumb: buffer = 2x longest lookback + 250 days
     cf = ContentFactory("kr_stock", get_start_date(start, 60 * 2 + 250), end)
-    momentum = close.pct_change(60)  # Has enough history
+    momentum = close.pct_change(60, fill_method=None)  # Has enough history
 ```
 
-### 5. Respect Position Constraints
+### 6. Align to trading_days (for resampled data)
+
+When using `resample()`, month-end dates may be non-business days. Use `-np.inf` to protect intentional NaN from ffill:
+
+```python
+positions = positions.fillna(-np.inf)  # Protect delisted NaN
+full_range = pd.date_range(positions.index.min(), cf.trading_days.max(), freq='D')
+positions = positions.reindex(full_range, method='ffill')
+positions = positions.reindex(cf.trading_days).replace(-np.inf, np.nan)
+```
+
+### 7. Respect Position Constraints
 
 Row sum ≤ 1e8 (total AUM):
 
@@ -216,8 +242,8 @@ class Alpha(BaseAlpha):
         cf = ContentFactory("kr_stock", get_start_date(start, period * 2 + 250), end)
         close = cf.get_df("price_close")
 
-        # Calculate momentum
-        momentum = close.pct_change(period)
+        # Calculate momentum (always use fill_method=None!)
+        momentum = close.pct_change(period, fill_method=None)
 
         # Select positive momentum stocks
         selected = momentum > 0

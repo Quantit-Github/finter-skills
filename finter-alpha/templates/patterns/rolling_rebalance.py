@@ -69,8 +69,8 @@ class Alpha(BaseAlpha):
         cf = ContentFactory("kr_stock", get_start_date(start, buffer), end)
         close = cf.get_df("price_close")
 
-        # Calculate raw signal
-        signal = close.pct_change(signal_period)
+        # Calculate raw signal (always use fill_method=None!)
+        signal = close.pct_change(signal_period, fill_method=None)
 
         # Apply rolling mean to smooth signal
         signal_smoothed = signal.rolling(smoothing_window).mean()

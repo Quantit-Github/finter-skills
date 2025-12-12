@@ -66,8 +66,8 @@ class Alpha(BaseAlpha):
         )
         close = cf.get_df("price_close")
 
-        # Calculate signal (example: momentum)
-        signal = close.pct_change(signal_period)
+        # Calculate signal (example: momentum) - always use fill_method=None!
+        signal = close.pct_change(signal_period, fill_method=None)
 
         # Select top K stocks per day
         top_k_mask = signal.rank(axis=1, ascending=False) <= top_k

@@ -92,8 +92,8 @@ class Alpha(BaseAlpha):
         book_to_market = cf.get_df("book-to-market")  # Value factor (lower = expensive)
         roe_change = cf.get_df("kr-change_roe")  # Quality factor (ROE improvement)
 
-        # Factor 1: Momentum (price change)
-        momentum_score = close.pct_change(momentum_period).rank(axis=1, pct=True)
+        # Factor 1: Momentum (price change) - always use fill_method=None!
+        momentum_score = close.pct_change(momentum_period, fill_method=None).rank(axis=1, pct=True)
 
         # Factor 2: Value (book-to-market, higher = cheaper = better)
         value_score = book_to_market.rank(axis=1, pct=True)

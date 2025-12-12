@@ -129,8 +129,8 @@ class Alpha(BaseAlpha):
         # Load data only for these stocks
         close = cf.get_df("price_close")[target_ids]
 
-        # Calculate momentum
-        momentum = close.pct_change(momentum_period)
+        # Calculate momentum (always use fill_method=None!)
+        momentum = close.pct_change(momentum_period, fill_method=None)
 
         # Rank stocks by momentum
         rank = momentum.rank(axis=1, pct=True)
@@ -177,7 +177,7 @@ class Alpha(BaseAlpha):
 
         # Load and analyze
         close = cf.get_df("price_close")[faang_ids]
-        returns_20d = close.pct_change(20)
+        returns_20d = close.pct_change(20, fill_method=None)
 
         # Equal weight the top 3 performers
         rank = returns_20d.rank(axis=1, ascending=False)

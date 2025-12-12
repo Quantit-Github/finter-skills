@@ -66,8 +66,8 @@ class Alpha(BaseAlpha):
         # Load Bitcoin closing price (8H candles)
         btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
 
-        # Calculate momentum (percent change over period)
-        momentum = btc_close.pct_change(periods=momentum_period)
+        # Calculate momentum (percent change over period) - always use fill_method=None!
+        momentum = btc_close.pct_change(periods=momentum_period, fill_method=None)
 
         # Generate signal: 1 (long) when momentum > 0, 0 (flat) otherwise
         signal = (momentum > 0).astype(float)

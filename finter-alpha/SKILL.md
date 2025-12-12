@@ -19,21 +19,27 @@ Develop quantitative trading alpha strategies using the Finter framework.
 
 **Common Mistakes:**
 
-**Mistake 1: Using signals instead of money amounts**
+**Mistake 1: Using pct_change() without fill_method=None**
 ```python
-# ❌ WRONG - Using 1/-1 signals
-momentum = close.pct_change(20)
-positions = (momentum > 0).astype(float)  # Returns 1 or 0
-return positions.shift(1)  # WRONG! These are signals, not money!
+# ❌ WRONG - Default fill_method='pad' causes path dependency!
+# Problem: Delisted stocks get padded → 0.0 vs NaN depending on start date
+momentum = close.pct_change(20)  # fill_method='pad' by default!
+# start=2024-01-01 → delisted stock returns 0.0 (padded from last value)
+# start=2024-06-01 → delisted stock returns NaN (all NaN, nothing to pad)
+# Same date, different values = PATH DEPENDENT!
 
-# ✅ CORRECT - Using money amounts (1e8 = 100% AUM)
-momentum = close.pct_change(20)
-selected = momentum > 0
-positions = selected.div(selected.sum(axis=1), axis=0) * 1e8  # Equal weight
-return positions.shift(1)  # Each position is money amount!
+# ✅ CORRECT - Always use fill_method=None
+momentum = close.pct_change(20, fill_method=None)  # Path independent
 ```
 
-**Mistake 2: Wrong date buffer calculation**
+**Mistake 2: Using signals instead of money amounts**
+```python
+# ❌ WRONG - positions = 1 or 0 (signals)
+# ✅ CORRECT - positions = 1e8 / N (money amounts, 1e8 = 100% AUM)
+positions = selected.div(selected.sum(axis=1), axis=0) * 1e8
+```
+
+**Mistake 3: Wrong date buffer calculation**
 ```python
 # ❌ WRONG - Direct subtraction breaks date format
 cf = ContentFactory("kr_stock", start - 300, end)  # 20240101 - 300 = 20239801!
@@ -53,7 +59,7 @@ def get_start_date(start: int, buffer: int = 365) -> int:
     )
 ```
 
-**Mistake 3: Wrong class/method names**
+**Mistake 4: Wrong class/method names**
 ```python
 # ❌ WRONG
 class MyAlpha(BaseAlpha):
@@ -66,7 +72,7 @@ class Alpha(BaseAlpha):
         return positions.shift(1)  # Correct!
 ```
 
-**Mistake 4: Renaming DataFrame columns**
+**Mistake 5: Renaming DataFrame columns**
 ```python
 # ❌ WRONG - Renaming columns breaks Simulator (can't match symbols)
 nvda_id = '11776801'
@@ -80,13 +86,25 @@ close = cf.get_df("price_close")[[nvda_id, aapl_id]]
 positions = ...  # Same column structure required for Simulator
 ```
 
-**Mistake 5: Date slicing without str() conversion**
+**Mistake 6: Date slicing without str() conversion**
 ```python
 # ❌ WRONG - Integer dates don't work with DatetimeIndex.loc[]
 return positions.shift(1).loc[start:end]  # KeyError or wrong results!
 
 # ✅ CORRECT - Convert to string for DatetimeIndex slicing
 return positions.shift(1).loc[str(start):str(end)]  # Works correctly!
+```
+
+**Mistake 7: Not aligning to trading_days (for resample)**
+```python
+# ❌ WRONG - resample('ME') creates 2024-03-31 (Sunday), not in trading_days
+# ❌ WRONG - naive ffill destroys intentional NaN (delisted stocks)
+
+# ✅ CORRECT - Protect NaN → expand to daily → filter to trading_days
+positions = positions.fillna(-np.inf)  # Protect delisted NaN
+full_range = pd.date_range(positions.index.min(), cf.trading_days.max(), freq='D')
+positions = positions.reindex(full_range, method='ffill')
+positions = positions.reindex(cf.trading_days).replace(-np.inf, np.nan)
 ```
 
 ## 📋 Workflow (DATA FIRST)
@@ -231,6 +249,7 @@ import pandas as pd
 > see `finter-data` skill. Key points:
 > - Use `cf.search()` to find data items - **ENGLISH ONLY** (Korean doesn't work)
 > - Use `print(cf.search('keyword').to_string())` to see full results (default output truncates)
+> - Use `cf.usage()` for general guide, `cf.usage('item_name')` for item-specific usage
 > - ALL parameters in ContentFactory constructor (NOT in get_df)
 > - Use `get_df()` for market data, `get_fc()` for financial data
 
@@ -238,6 +257,8 @@ import pandas as pd
 # Quick example (see finter-data for full details)
 cf = ContentFactory("us_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
 print(cf.search('close').to_string())  # See all results without truncation
+cf.usage()  # General usage guide
+cf.usage('price_close')  # Item-specific usage
 close = cf.get_df("price_close")  # Use get_df, not get!
 ```
 
