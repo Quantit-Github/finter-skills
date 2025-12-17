@@ -7,363 +7,187 @@ description: Quantitative trading alpha strategy development using the Finter Py
 
 Develop quantitative trading alpha strategies using the Finter framework.
 
-## ⚠️ CRITICAL RULES (MUST FOLLOW)
+## ⚠️ CRITICAL: VERIFY BEFORE SAVING alpha.py
 
-**Alpha Class Requirements:**
-1. **Class name MUST be `Alpha`** (not CustomStrategy, MyAlpha, SectorMomentumAlpha, etc.)
-2. **Method name MUST be `get`** (not generate, calculate, etc.)
-3. **Method signature**: `def get(self, start: int, end: int, **kwargs) -> pd.DataFrame`
-4. **ALWAYS shift positions**: `return positions.shift(1)` to avoid look-ahead bias
-5. **Position values = MONEY AMOUNT** (1e8 = 100% AUM), NOT signals (1/-1)!
-6. **Date buffer**: Use `get_start_date(start, buffer)`, NEVER `start - 300`!
-7. **ALWAYS use fillna(0)**: `return positions.shift(1).fillna(0)` to avoid "All NaN" error on submit
+**EVERY alpha.py MUST have these 3 things. Check before saving:**
 
-**Common Mistakes:**
-
-**Mistake 1: Using pct_change() without fill_method=None**
 ```python
-# ❌ WRONG - Default fill_method='pad' causes path dependency!
-# Problem: Delisted stocks get padded → 0.0 vs NaN depending on start date
-momentum = close.pct_change(20)  # fill_method='pad' by default!
-# start=2024-01-01 → delisted stock returns 0.0 (padded from last value)
-# start=2024-06-01 → delisted stock returns NaN (all NaN, nothing to pad)
-# Same date, different values = PATH DEPENDENT!
+# ✅ CHECK 1: Class name is exactly "Alpha"
+class Alpha(BaseAlpha):  # ❌ NOT MyAlpha, MomentumAlpha, etc.
 
-# ✅ CORRECT - Always use fill_method=None
-momentum = close.pct_change(20, fill_method=None)  # Path independent
+# ✅ CHECK 2: Return ends with .shift(1).fillna(0)
+return positions.shift(1).fillna(0)  # ❌ NOT .shift(1) alone
+
+# ✅ CHECK 3: pct_change has fill_method=None
+close.pct_change(20, fill_method=None)  # ❌ NOT pct_change(20)
 ```
 
-**Mistake 2: Using signals instead of money amounts**
-```python
-# ❌ WRONG - positions = 1 or 0 (signals)
-# ✅ CORRECT - positions = 1e8 / N (money amounts, 1e8 = 100% AUM)
-positions = selected.div(selected.sum(axis=1), axis=0) * 1e8
+**Pre-save checklist:**
+- [ ] `class Alpha(BaseAlpha)` - not any other name
+- [ ] `return ....shift(1).fillna(0)` - both shift AND fillna
+- [ ] All `pct_change()` calls have `fill_method=None`
+
+## ⛔ NO SELF-FEEDBACK (CRITICAL)
+
+**Single pass only.** Backtest → Report → DONE. Fund Manager decides next steps.
+
+```
+❌ FORBIDDEN: "Sharpe 0.8, let me try different parameters..." → Backtest again
+✅ CORRECT: Explore → Implement → Backtest → Report → STOP
 ```
 
-**Mistake 3: Wrong date buffer calculation**
+## 💰 TURNOVER CHECK (Before Backtest)
+
+**Check signal stability BEFORE full backtest.**
+
 ```python
-# ❌ WRONG - Direct subtraction breaks date format
-cf = ContentFactory("kr_stock", start - 300, end)  # 20240101 - 300 = 20239801!
-
-# ✅ CORRECT - Use get_start_date helper
-from helpers import get_start_date
-cf = ContentFactory("kr_stock", get_start_date(start, buffer=300), end)
-
-# get_start_date is included in all templates!
-def get_start_date(start: int, buffer: int = 365) -> int:
-    """
-    Get start date with buffer days for data loading.
-    Rule of thumb: buffer = 2x longest lookback + 250 days
-    """
-    return int(
-        (datetime.strptime(str(start), "%Y%m%d") - timedelta(days=buffer)).strftime("%Y%m%d")
-    )
+# Quick turnover check on your signal
+daily_changes = (signal.diff() != 0).sum(axis=1).mean()
+print(f"Avg daily changes: {daily_changes:.0f} stocks")
 ```
 
-**Mistake 4: Wrong class/method names**
+**If turnover seems high, DIAGNOSE first before applying any fix.**
+→ Read `references/mental_models/signal_processing.md` for decision framework.
+
+DON'T default to any specific technique. Ask:
+1. Is the noise frequency >> signal frequency?
+2. Are extreme values informative or noise?
+3. Does the fix actually improve IC?
+
+## 📋 Workflow
+
+1. **Read Framework**: `references/framework.md` (REQUIRED)
+2. **Read Mental Models**: `references/mental_models/signal_processing.md` (REQUIRED)
+3. **Explore Data**: Load data in Jupyter, check distributions
+4. **Diagnose Signal Quality**: Before implementing, ask the diagnostic questions
+5. **Find Template**: Copy from `templates/examples/`
+6. **Implement & Backtest**: Write Alpha class, run Simulator
+7. **Save alpha.py**: Use Write tool (NOT Jupyter)
+8. **Finalize**: Run ONE command to generate all outputs
+9. **Report & STOP**: Report results, let Fund Manager evaluate
+
+## 🎯 Templates
+
+| Pattern | Template |
+|---------|----------|
+| Momentum/Technical | `templates/examples/technical_analysis.py` |
+| Multi-factor | `templates/examples/multi_factor.py` |
+| Stock Selection | `templates/examples/stock_selection.py` |
+| Crypto (BETA) | `templates/examples/crypto_bitcoin.py` |
+
+**Copy and modify templates - don't write from scratch!**
+
+## ⚡ Quick Backtest
+
 ```python
-# ❌ WRONG - Class name must be exactly "Alpha"
-class MyAlpha(BaseAlpha):           # WRONG: MyAlpha
-class SectorMomentumAlpha(BaseAlpha):  # WRONG: SectorMomentumAlpha
-class MomentumStrategy(BaseAlpha):     # WRONG: MomentumStrategy
-    def generate(self, start, end):  # Wrong method name!
-        return positions  # Missing shift and fillna!
-
-# ✅ CORRECT
-class Alpha(BaseAlpha):  # MUST be "Alpha"
-    def get(self, start: int, end: int, **kwargs) -> pd.DataFrame:
-        return positions.shift(1).fillna(0)  # Correct!
-```
-
-**Mistake 5: Missing fillna(0) causes "All NaN detected" error**
-```python
-# ❌ WRONG - Early rows after shift() are all NaN
-positions = positions.shift(1)
-return positions  # First row is all NaN → submit fails!
-
-# ✅ CORRECT - Fill NaN with 0 (cash position)
-positions = positions.shift(1)
-return positions.fillna(0)  # All-cash on first day, no error
-```
-
-**Mistake 6: Renaming DataFrame columns**
-```python
-# ❌ WRONG - Renaming columns breaks Simulator (can't match symbols)
-nvda_id = '11776801'
-aapl_id = '00169001'
-close = cf.get_df("price_close")[[nvda_id, aapl_id]]
-close.columns = ['NVDA', 'AAPL']  # NEVER do this!
-
-# ✅ CORRECT - Keep Finter ID columns as-is
-close = cf.get_df("price_close")[[nvda_id, aapl_id]]
-# columns: ['11776801', '00169001'] - keep original IDs
-positions = ...  # Same column structure required for Simulator
-```
-
-**Mistake 7: Date slicing without str() conversion**
-```python
-# ❌ WRONG - Integer dates don't work with DatetimeIndex.loc[]
-return positions.shift(1).loc[start:end]  # KeyError or wrong results!
-
-# ✅ CORRECT - Convert to string for DatetimeIndex slicing
-return positions.shift(1).loc[str(start):str(end)]  # Works correctly!
-```
-
-**Mistake 8: Not aligning to trading_days (for resample)**
-```python
-# ❌ WRONG - resample('ME') creates 2024-03-31 (Sunday), not in trading_days
-# ❌ WRONG - naive ffill destroys intentional NaN (delisted stocks)
-
-# ✅ CORRECT - Protect NaN → expand to daily → filter to trading_days
-positions = positions.fillna(-np.inf)  # Protect delisted NaN
-full_range = pd.date_range(positions.index.min(), cf.trading_days.max(), freq='D')
-positions = positions.reindex(full_range, method='ffill')
-positions = positions.reindex(cf.trading_days).replace(-np.inf, np.nan)
-```
-
-## 📋 Workflow (DATA FIRST)
-
-1. **Explore Data FIRST**: Load sample data in Jupyter, visualize, test library functions
-2. **Analyze Patterns**: Check distributions, correlations, data quality
-3. **Reference Examples**: Find closest template from `templates/examples/`
-4. **Implement in Jupyter**: Write Alpha class based on data insights
-5. **Validate Positions**: Run `validate_positions(positions)` to check format
-6. **Backtest in Jupyter**: Run Simulator, record metrics
-7. **Save alpha.py**: Save the implementation regardless of backtest results
-8. **Run Scripts (MANDATORY)**: Execute backtest_runner, chart_generator, info_generator
-9. **Report Results**: Summarize findings and let Fund Manager decide next steps
-
-**⚠️ NEVER write Alpha class before exploring data!**
-**⚠️ NEVER skip running scripts after saving alpha.py!**
-
-**⛔ NO SELF-FEEDBACK RULE:**
-- Complete ONE implementation cycle, then STOP
-- Do NOT retry based on backtest results
-- Do NOT judge if results are "good" or "poor"
-- Report what you built and let Fund Manager evaluate
-
-## 🎯 First Steps
-
-### Read the Framework First
-**BEFORE coding, read `references/framework.md`** - it explains:
-- BaseAlpha class structure and requirements
-- Position DataFrame format and constraints
-- Data loading with buffer
-- Complete minimal example
-
-### Find Your Template
-**Review `templates/examples/` for similar patterns:**
-- **Momentum/Technical**: `examples/technical_analysis.py`
-- **Multi-factor**: `examples/multi_factor.py`
-- **Stock Selection**: `examples/stock_selection.py`
-- **Bitcoin/Crypto (BETA)**: `examples/crypto_bitcoin.py`
-
-**IMPORTANT**: Templates show COMPLETE working code. Copy and modify, don't write from scratch!
-
-### Run Backtest in Jupyter
-```python
-# Step 1: Generate positions
-alpha = Alpha()
-positions = alpha.get(20200101, int(datetime.now().strftime("%Y%m%d")))
-
-# Step 2: Run backtest
+from finter import BaseAlpha
 from finter.backtest import Simulator
-simulator = Simulator(market_type="kr_stock")
-result = simulator.run(position=positions)
 
-# Step 3: Check results (use EXACT field names!)
-stats = result.statistics
-summary = result.summary
+alpha = Alpha()
+positions = alpha.get(20200101, 20241213)
 
-print(f"Total Return: {stats['Total Return (%)']:.2f}%")
-print(f"Sharpe Ratio: {stats['Sharpe Ratio']:.2f}")
-print(f"Max Drawdown: {stats['Max Drawdown (%)']:.2f}%")
-print(f"Hit Ratio: {stats['Hit Ratio (%)']:.2f}%")
+sim = Simulator(market_type="kr_stock")
+result = sim.run(position=positions)
 
-# Step 4: Turnover & Cost Analysis (MANDATORY)
-# target_turnover is already a ratio (1.0 = 100% of AUM)
-avg_daily_turnover = summary['target_turnover'].mean()
-annual_turnover = avg_daily_turnover * 252  # Annualized turnover ratio
-total_cost = summary['cost'].sum() + summary['slippage'].sum()
-avg_aum = summary['aum'].mean()
-cost_drag = (total_cost / avg_aum) * 100
-
-print(f"Annual Turnover: {annual_turnover:.1%}")
-print(f"Total Cost: {total_cost:,.0f}")
-print(f"Cost Drag: {cost_drag:.2f}% of AUM")
-
-# Step 5: Visualize NAV curve
-summary['nav'].plot(title='NAV (starts at 1000)', figsize=(12,6))
-
-# IMPORTANT:
-# - NAV always starts at 1000 (not 1 or 1e8!)
-# - DO NOT use 'Annual Return (%)' - it doesn't exist!
-# - Turnover & Cost are ALREADY reflected in NAV (net return)
+print(f"Sharpe: {result.statistics['Sharpe Ratio']:.2f}")
+print(f"Return: {result.statistics['Total Return (%)']:.1f}%")
+print(f"MaxDD: {result.statistics['Max Drawdown (%)']:.1f}%")
 ```
 
-**Available `result.statistics` fields (18 total):**
-| Field | Description |
-|-------|-------------|
-| `Total Return (%)` | Total portfolio return |
-| `CAGR (%)` | Compound Annual Growth Rate |
-| `Volatility (%)` | Annualized standard deviation |
-| `Hit Ratio (%)` | % of profitable days |
-| `Sharpe Ratio` | Risk-adjusted return |
-| `Sortino Ratio` | Downside risk-adjusted return |
-| `Max Drawdown (%)` | Largest peak-to-trough loss |
-| `Mean Drawdown (%)` | Average drawdown |
-| `Calmar Ratio` | Return / Max Drawdown |
-| `Avg Tuw` | Average time underwater (days) |
-| `Max Tuw` | Maximum time underwater (days) |
-| `Skewness` | Return distribution skewness |
-| `Kurtosis` | Return distribution kurtosis |
-| `VaR 95% (%)` | 95% Value-at-Risk |
-| `VaR 99% (%)` | 99% Value-at-Risk |
-| `Positive HHI` | HHI for positive returns |
-| `Negative HHI` | HHI for negative returns |
-| `K Ratio` | Equity curve slope / std error |
+## ⚠️ Simulator Result API (EXACT)
 
-See `references/api_reference.md` for complete Simulator API.
+**Available attributes:**
+```python
+result.statistics   # pd.Series - Sharpe Ratio, Total Return (%), Max Drawdown (%), etc.
+result.summary      # pd.DataFrame - nav, daily_return, cost, slippage, target_turnover, aum
+```
+
+**These do NOT exist (don't try):**
+```python
+result.plot()            # ❌ NO - use matplotlib with result.summary['nav']
+result.cumulative_return # ❌ NO - use result.summary['nav']
+result.daily_return      # ❌ NO - use result.summary['daily_return']
+result.nav               # ❌ NO - use result.summary['nav']
+result.performance()     # ❌ NO - use result.statistics
+result.pnl               # ❌ NO - use result.summary['nav']
+```
+
+**Turnover & Cost calculation:**
+```python
+# Annual turnover (target_turnover is daily ratio, 1.0 = 100% of AUM)
+annual_turnover = result.summary['target_turnover'].mean() * 252
+
+# Cost drag as % of AUM
+total_cost = result.summary['cost'].sum() + result.summary['slippage'].sum()
+cost_drag_pct = (total_cost / result.summary['aum'].mean()) * 100
+```
+
+## 🚀 FINAL STEP (ONE COMMAND)
+
+After saving alpha.py, run `finalize.py`:
+
+```bash
+python .claude/skills/finter-alpha/scripts/finalize.py \
+    --code alpha.py \
+    --universe kr_stock \
+    --title "Strategy Name" \
+    --category momentum
+```
+
+**What finalize.py does:**
+1. **Validates** - class name, position format, path independence
+2. **Backtests** - runs Simulator, calculates metrics
+3. **Generates** - chart.png, info.json, CSV files
+
+**Output files:**
+- `backtest_summary.csv`, `backtest_stats.csv`
+- `chart.png`
+- `info.json`
+
+If validation fails, fix alpha.py and re-run.
+
+**Categories**: momentum | value | quality | growth | size | low_vol | technical | macro | stat_arb | event | ml | composite
+
+**Universes**: kr_stock | us_stock | us_etf | vn_stock | id_stock | btcusdt_spot_binance
 
 ## 📚 Documentation
 
-**Read these BEFORE coding:**
-1. **`references/framework.md`** - BaseAlpha requirements (READ THIS FIRST!)
-2. **`references/universe_reference.md`** - Available universes and data items (includes Crypto BETA)
-3. **`references/api_reference.md`** - ContentFactory, Simulator API
-4. **`references/troubleshooting.md`** - Common mistakes and fixes
+### MUST READ (Before Implementation)
+| Doc | Purpose |
+|-----|---------|
+| `references/framework.md` | BaseAlpha rules, position format |
+| `references/mental_models/signal_processing.md` | Signal quality diagnosis & techniques |
 
-**Reference during coding:**
-- **`templates/examples/`** - 4 complete strategy examples (stocks + crypto)
-- **`templates/patterns/`** - Reusable building blocks
-- **`references/research_process.md`** - Validation and testing
+### Reference During Coding
+| Doc | Purpose |
+|-----|---------|
+| `references/troubleshooting.md` | Common mistakes with ❌/✅ examples |
+| `references/api_reference.md` | ContentFactory, Simulator API |
+| `references/universe_reference.md` | Data items per universe |
 
-**Pattern matching guide:**
-- Technical/momentum strategy → `examples/technical_analysis.py`
-- Combine multiple factors → `examples/multi_factor.py`
-- Specific stocks only → `examples/stock_selection.py`
-- Bitcoin/crypto strategy (BETA) → `examples/crypto_bitcoin.py`
-- Equal weighting → `patterns/equal_weight.py`
-- Top-K selection → `patterns/top_k_selection.py`
-- Rolling rebalance → `patterns/rolling_rebalance.py`
+## ⚡ Data Loading Reference
 
-## ⚡ Quick Reference
-
-**Essential imports:**
 ```python
-from finter import BaseAlpha
 from finter.data import ContentFactory
-from finter.backtest import Simulator
-import pandas as pd
+from helpers import get_start_date  # Included in templates
+
+# Load with buffer (rule: 2x lookback + 250 days)
+cf = ContentFactory("kr_stock", get_start_date(start, 300), end)
+
+# Discover data items
+print(cf.search('volume').to_string())
+cf.usage('price_close')
+
+# Load data
+close = cf.get_df("price_close")
 ```
 
-**Data Loading:**
+| Universe | Notes |
+|----------|-------|
+| kr_stock, us_stock | Full support, 1000+ items |
+| us_etf | Market data only |
+| vn_stock | **PascalCase**: `ClosePrice` |
+| id_stock | Use `volume_sum` |
+| raw (crypto) | No cf.search(), 8H candles |
 
-> **SSOT:** For ContentFactory usage, data discovery, and Symbol search,
-> see `finter-data` skill. Key points:
-> - Use `cf.search()` to find data items - **ENGLISH ONLY** (Korean doesn't work)
-> - Use `print(cf.search('keyword').to_string())` to see full results (default output truncates)
-> - Use `cf.usage()` for general guide, `cf.usage('item_name')` for item-specific usage
-> - ALL parameters in ContentFactory constructor (NOT in get_df)
-> - Use `get_df()` for market data, `get_fc()` for financial data
-
-```python
-# Quick example (see finter-data for full details)
-cf = ContentFactory("us_stock", 20200101, int(datetime.now().strftime("%Y%m%d")))
-print(cf.search('close').to_string())  # See all results without truncation
-cf.usage()  # General usage guide
-cf.usage('price_close')  # Item-specific usage
-close = cf.get_df("price_close")  # Use get_df, not get!
-```
-
-**Supported Universes:**
-
-| Universe | Assets | Key Differences |
-|----------|--------|-----------------|
-| kr_stock | ~2,500 | Full support, 1000+ data items |
-| us_stock | ~8,000 | Full support, 1000+ data items |
-| us_etf   | ~6,700 | Market data only |
-| id_stock | ~1,000 | Use `volume_sum` not `trading_volume` |
-| vn_stock | ~1,000 | **PascalCase**: `ClosePrice` not `price_close` |
-| raw (crypto) | 1 (BTC only) | **No cf.search()**, 8H candles, see `universe_reference.md` |
-
-**DO NOT SKIP** reading `references/framework.md` - it has critical rules!
-
-## 🚀 FINAL STEPS (MANDATORY - After Backtest)
-
-**⚠️ You MUST complete ALL these steps after saving alpha.py!**
-
-### Step 1: Save alpha.py
-Save final Alpha class to workspace using Write tool (NOT Jupyter).
-
-### Step 2: Run Backtest Script
-```bash
-python .claude/skills/finter-alpha/scripts/backtest_runner.py --code alpha.py --universe kr_stock
-```
-- Includes validation (path independence, trading days index)
-- If validation fails → fix alpha.py and re-run
-- Generates: `backtest_summary.csv`, `backtest_stats.csv`
-
-### Step 3: Generate Chart
-```bash
-python .claude/skills/finter-alpha/scripts/chart_generator.py --summary backtest_summary.csv --stats backtest_stats.csv
-```
-- Generates: `chart.png`
-
-### Step 4: Generate Info
-```bash
-python .claude/skills/finter-alpha/scripts/info_generator.py \
-    --title "Strategy Name" \
-    --summary "One-line description of signal logic" \
-    --category momentum \
-    --universe kr_stock \
-    --not-investable \
-    --evaluation "Backtest completed" \
-    --lessons "Implementation completed"
-```
-- **--title**: English only, max 34 chars
-- **--summary**: OBJECTIVE description of signal (e.g., "20-day momentum, top 10% equal weight")
-- **--category**: momentum|value|quality|growth|size|low_vol|technical|macro|stat_arb|event|ml|composite
-- **--universe**: kr_stock|us_stock|vn_stock|id_stock|us_etf|btcusdt_spot_binance
-- **--not-investable**: ALWAYS use this (Fund Manager decides investability)
-- **--evaluation**: Just say "Backtest completed" (Fund Manager evaluates)
-- **--lessons**: Just say "Implementation completed" (Fund Manager extracts lessons)
-- Generates: `info.json`
-
-### Step 5: Final Summary (FACTS ONLY)
-Add ONE markdown cell with **OBJECTIVE FACTS ONLY**:
-
-```markdown
-## Results
-
-| Metric | Value |
-|--------|-------|
-| Total Return | X% |
-| Sharpe Ratio | X.XX |
-| Max Drawdown | X% |
-| Annual Turnover | X.Xx |
-| Cost Drag | X.XX% |
-
-## Implementation
-- Universe: kr_stock
-- Period: 20200101 - 20241210
-- Signal: [brief description]
-- Rebalancing: daily
-
-## Files
-- alpha.py
-- backtest_stats.csv
-- chart.png
-- info.json
-```
-
-**⛔ DO NOT INCLUDE:**
-- "Strategy failed/succeeded"
-- "This works because..."
-- "Suggested improvements..."
-- "The reason for poor results..."
-- Any subjective analysis or recommendations
-
-**Fund Manager will evaluate results and provide feedback.**
-
-**⚠️ Task is NOT complete until all 5 steps are done!**
+See `finter-data` skill for detailed data loading guide.

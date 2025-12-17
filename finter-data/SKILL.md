@@ -198,15 +198,17 @@ fc.apply_rolling(4, 'sum', variables=['income'])  # TTM income
 2. **Answer directly** - No need to load data or run code
 
 ### For Data Tasks (load, explore, preprocess)
-1. **Discovery**: `cf.search()` → find item names
-2. **Load**: Use ContentFactory with correct parameters
-3. **Quality Check**: Inspect NaN, outliers, distributions
-4. **Preprocess**: Handle missing values, outliers, normalization
-5. **Feature Engineering**: Transform, rank, combine (if needed)
-6. **Validate**: Verify data quality before using in alpha
+1. **Read Mental Models**: `references/mental_models/data_quality.md` (REQUIRED)
+2. **Discovery**: `cf.search()` → find item names
+3. **Load**: Use ContentFactory with correct parameters
+4. **Diagnose Quality**: Ask the diagnostic questions (NaN, outliers, bias)
+5. **Handle Issues**: Choose technique based on diagnosis, not habit
+6. **Feature Engineering**: Transform, rank, combine (if needed)
+7. **Validate**: Verify data quality before using in alpha
 
 **⚠️ NEVER skip quality checks for data tasks!**
 **⚠️ DO NOT load data unnecessarily for simple questions!**
+**⚠️ DON'T default to any technique - diagnose first!**
 
 ## 🎯 First Steps
 
@@ -242,14 +244,19 @@ fc.apply_rolling(4, 'sum', variables=['income'])  # TTM income
 
 ## 📚 Documentation
 
-**Read these BEFORE coding:**
-1. **`references/framework.md`** - ContentFactory API and data quality (READ THIS FIRST!)
-2. **`references/financial_calculator.md`** - get_fc() for financial data (optional)
-3. **`references/preprocessing.md`** - Preprocessing methods (SSOT)
-4. **`references/gics.md`** - GICS sector analysis (optional)
+### MUST READ (Before Data Tasks)
+| Doc | Purpose |
+|-----|---------|
+| `references/framework.md` | ContentFactory API and data loading |
+| `references/mental_models/data_quality.md` | Data quality diagnosis framework |
 
-**Reference during coding:**
-- **`templates/examples/`** - Working examples
+### Reference During Coding
+| Doc | Purpose |
+|-----|---------|
+| `references/financial_calculator.md` | get_fc() for financial data |
+| `references/preprocessing.md` | Preprocessing methods |
+| `references/gics.md` | GICS sector analysis |
+| `templates/examples/` | Working examples |
 
 ## ⚡ Quick Reference
 
@@ -348,47 +355,21 @@ close.plot(figsize=(12, 6), title='Price History')  # Just plot!
 close.hist(bins=50, figsize=(10, 6))
 ```
 
-**Missing value handling:**
+**Data quality handling:**
+
+DON'T default to any specific technique. Before handling NaN, outliers, or normalization:
+
+1. **Diagnose the issue** - Read `references/mental_models/data_quality.md`
+2. **Ask diagnostic questions** - Why is this value missing/extreme?
+3. **Choose technique based on diagnosis** - Not based on habit
+
 ```python
-# Forward fill + backward fill (most common)
-clean = close.ffill().bfill()
+# Diagnosis first
+print(f"NaN ratio: {df.isna().sum().sum() / df.size:.2%}")
+print(f"Values > 3 std: {(df > df.mean() + 3*df.std()).sum().sum()}")
 
-# Forward fill only (for time series)
-clean = close.ffill()
-
-# Interpolation (for smooth data)
-clean = close.interpolate(method='linear')
-```
-
-**Outlier handling:**
-```python
-# Winsorization (recommended)
-def winsorize(df, lower=0.01, upper=0.99):
-    """Clip to percentiles"""
-    return df.clip(
-        lower=df.quantile(lower, axis=1),
-        upper=df.quantile(upper, axis=1),
-        axis=0
-    )
-
-factor_clean = winsorize(factor, 0.01, 0.99)
-```
-
-**Normalization:**
-```python
-# Cross-sectional z-score (most common)
-def zscore(df):
-    """Normalize per timestamp"""
-    return df.sub(df.mean(axis=1), axis=0).div(df.std(axis=1), axis=0)
-
-normalized = zscore(factor)
-
-# Cross-sectional rank (robust to outliers)
-def rank_normalize(df):
-    """Rank 0-1 per timestamp"""
-    return df.rank(axis=1, pct=True)
-
-ranked = rank_normalize(factor)
+# Then decide on technique based on your diagnosis
+# See references/mental_models/data_quality.md for decision frameworks
 ```
 
 ## 🔍 When to Use This Skill

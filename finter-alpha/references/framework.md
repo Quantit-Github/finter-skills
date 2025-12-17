@@ -269,6 +269,85 @@ class Alpha(BaseAlpha):
         # Implementation...
 ```
 
+## Turnover Management
+
+### Why Turnover Matters
+
+Every position change has costs (commissions, slippage, market impact). High turnover can destroy an otherwise good strategy.
+
+```
+Example: 2000 stock universe, daily rebalancing
+- 50% of positions change daily → 1000 trades/day
+- Annual turnover: ~25,000%
+- At 0.1% cost per trade: 25% annual drag
+- Your 30% gross return → 5% net return
+```
+
+### Check Signal Stability BEFORE Full Backtest
+
+```python
+# After creating your signal, BEFORE positions:
+signal = momentum_score  # or whatever your signal is
+
+# Count how many stocks change signal direction each day
+daily_changes = (signal.diff() != 0).sum(axis=1)
+print(f"Avg daily changes: {daily_changes.mean():.0f} / {len(signal.columns)} stocks")
+print(f"Max daily changes: {daily_changes.max():.0f}")
+
+# Rule of thumb:
+# - < 10% of universe changing daily → OK for daily rebalancing
+# - 10-30% changing daily → consider weekly rebalancing
+# - > 30% changing daily → signal is too noisy, needs smoothing or monthly rebalancing
+```
+
+### Signal Smoothing Techniques
+
+**When signal is too noisy:**
+
+```python
+# Option 1: Rolling average (smooths the signal)
+smoothed_signal = signal.rolling(5).mean()
+
+# Option 2: Reduce rebalancing frequency (monthly)
+monthly_signal = signal.resample('ME').last()
+positions = monthly_signal.reindex(trading_days, method='ffill')
+
+# Option 3: Require consecutive signals (confirmation)
+confirmed = (signal > 0) & (signal.shift(1) > 0) & (signal.shift(2) > 0)
+```
+
+### DON'T Over-Smooth
+
+**Smoothing is NOT always better.** Consider the signal type:
+
+| Signal Type | Natural Frequency | Smoothing Advice |
+|-------------|-------------------|------------------|
+| Momentum (20d+) | Slow | Usually OK as-is |
+| Mean reversion | Medium | Light smoothing or weekly |
+| News/Events | Fast | DON'T smooth - capture the edge quickly |
+| Earnings | Event-driven | DON'T smooth - trade around event |
+
+**Key insight:** If your signal is SUPPOSED to be fast (event-driven), smoothing destroys the edge. If it's supposed to be slow (value/momentum), daily noise is just noise.
+
+### Turnover Estimation
+
+```python
+# Estimate turnover from positions
+def estimate_turnover(positions: pd.DataFrame) -> float:
+    """Estimate annual turnover percentage."""
+    daily_turnover = positions.diff().abs().sum(axis=1) / positions.abs().sum(axis=1)
+    annual_turnover = daily_turnover.mean() * 252 * 100  # Convert to %
+    return annual_turnover
+
+turnover = estimate_turnover(positions)
+print(f"Estimated annual turnover: {turnover:.0f}%")
+
+# Guidelines:
+# < 500%: Low turnover (value/quality strategies)
+# 500-2000%: Medium turnover (momentum strategies)
+# > 2000%: High turnover - check if signal warrants it
+```
+
 ## See Also
 
 - `../templates/` - Ready-to-use strategy templates
