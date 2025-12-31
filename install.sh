@@ -37,6 +37,18 @@ uv add finter
 echo "  Syncing dependencies..."
 uv sync
 
+# Get API key
+echo ""
+echo -n "Enter your Finter API key: "
+read -r FINTER_API_KEY
+
+if [ -n "$FINTER_API_KEY" ]; then
+    echo "FINTER_API_KEY=$FINTER_API_KEY" > "$TARGET_DIR/.env"
+    echo "  Saved to .env"
+else
+    echo "  Skipped (no API key provided)"
+fi
+
 echo ""
 
 # 2. Setup Claude skills (symlink to parent)
