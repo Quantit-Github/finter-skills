@@ -67,12 +67,8 @@ cp "$SCRIPT_DIR/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
 echo "  Copied: CLAUDE.md"
 
 echo ""
-echo "Done! Now:"
+echo "Done! Starting Claude Code..."
 echo ""
-echo "  cd workspace"
-echo "  claude"
-echo ""
-echo "Then ask:"
-echo "  What data is available for Korean stocks?"
-echo "  Create a momentum alpha for us_stock"
-echo ""
+
+cd "$TARGET_DIR"
+exec claude
