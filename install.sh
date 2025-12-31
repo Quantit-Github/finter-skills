@@ -13,36 +13,57 @@ CLAUDE_DIR="$TARGET_DIR/.claude"
 SKILLS_DIR="$CLAUDE_DIR/skills"
 
 echo "Installing Finter skills to: $TARGET_DIR"
+echo ""
 
-# Create .claude directory
+# 1. Setup Python environment with uv
+echo "Setting up Python environment..."
+if ! command -v uv &> /dev/null; then
+    echo "Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+fi
+
+if [ ! -f "$TARGET_DIR/pyproject.toml" ]; then
+    echo "  Initializing uv project..."
+    uv init --no-readme
+fi
+
+echo "  Adding finter package..."
+uv add finter
+
+echo ""
+
+# 2. Setup Claude skills
+echo "Setting up Claude skills..."
 mkdir -p "$CLAUDE_DIR"
 
-# Copy or link skills
 if [ -d "$SKILLS_DIR" ]; then
-    echo "Warning: $SKILLS_DIR already exists. Skipping skills copy."
-else
-    # Copy skill directories (exclude install.sh, README.md, etc.)
-    mkdir -p "$SKILLS_DIR"
-    for skill in finter-data finter-alpha finter-portfolio finter-portfolio-agent finter-insight finter-operations; do
-        if [ -d "$SCRIPT_DIR/$skill" ]; then
-            cp -r "$SCRIPT_DIR/$skill" "$SKILLS_DIR/"
-            echo "  Copied: $skill"
-        fi
-    done
+    echo "  Warning: $SKILLS_DIR already exists. Updating..."
+    rm -rf "$SKILLS_DIR"
 fi
 
-# Copy CLAUDE.md
+mkdir -p "$SKILLS_DIR"
+for skill in finter-data finter-alpha finter-portfolio finter-portfolio-agent finter-insight finter-operations; do
+    if [ -d "$SCRIPT_DIR/$skill" ]; then
+        cp -r "$SCRIPT_DIR/$skill" "$SKILLS_DIR/"
+        echo "  Copied: $skill"
+    fi
+done
+
+echo ""
+
+# 3. Copy CLAUDE.md
+echo "Setting up CLAUDE.md..."
 if [ -f "$TARGET_DIR/CLAUDE.md" ]; then
-    echo "Warning: CLAUDE.md already exists. Skipping."
-else
-    cp "$SCRIPT_DIR/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
-    echo "  Copied: CLAUDE.md"
+    echo "  Warning: CLAUDE.md exists. Backing up to CLAUDE.md.bak"
+    mv "$TARGET_DIR/CLAUDE.md" "$TARGET_DIR/CLAUDE.md.bak"
 fi
+cp "$SCRIPT_DIR/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
+echo "  Copied: CLAUDE.md"
 
 echo ""
-echo "Done! Now you can run 'claude' and ask about Finter data."
+echo "Done! Now run 'claude' and start asking:"
 echo ""
-echo "Example questions:"
-echo "  - finter에 한국주식 PER 데이터 있어?"
-echo "  - us_stock universe에서 momentum alpha 만들어줘"
-echo "  - crypto 데이터 어떻게 로드해?"
+echo "   What PER data is available for Korean stocks?"
+echo "   Create a momentum alpha for us_stock"
+echo "   How do I load crypto data?"
+echo ""

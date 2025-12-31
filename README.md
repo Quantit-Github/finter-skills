@@ -1,69 +1,47 @@
 # Finter Skills for Claude Code
 
-Claude Code에서 Finter 데이터/알파/포트폴리오 작업을 바로 할 수 있게 해주는 스킬 모음.
+Skills for quant research with Finter platform in Claude Code.
 
-## Installation
-
-### 1. Clone this repo
+## Quick Start
 
 ```bash
-git clone https://github.com/quantit/finter-skills.git
+# 1. Clone this repo (once)
+git clone git@github.com:Quantit-Github/finter-skills.git ~/finter-skills
+
+# 2. Install in your project folder (uv + finter + skills all at once)
+mkdir my-quant-project && cd my-quant-project
+~/finter-skills/install.sh
+
+# 3. Run Claude Code
+claude
 ```
 
-### 2. Install finter package
+## What install.sh Does
 
-```bash
-pip install finter
-# or
-uv add finter
 ```
-
-### 3. Setup skills in your project
-
-```bash
-cd your-project
-/path/to/finter-skills/install.sh
-```
-
-This creates:
-```
-your-project/
+my-quant-project/
 ├── .claude/
 │   └── skills/
-│       ├── finter-data/
-│       ├── finter-alpha/
-│       ├── finter-portfolio/
+│       ├── finter-data/      # Data loading
+│       ├── finter-alpha/     # Alpha strategies
+│       ├── finter-portfolio/ # Portfolio optimization
 │       └── ...
-└── CLAUDE.md
-```
-
-### 4. Run Claude Code
-
-```bash
-claude
+├── CLAUDE.md                 # Context for Claude
+├── pyproject.toml            # uv project
+└── .venv/                    # Python environment
 ```
 
 ## Usage Examples
 
 ```
-> finter에 한국주식 PER 데이터 있어?
+> What data is available for Korean stocks?
 
-> us_stock에서 momentum alpha 만들어줘
+> Create a momentum alpha for us_stock
 
-> crypto 데이터 어떻게 로드해?
+> Backtest a BTC strategy with crypto_test universe
 
-> kr_stock universe로 value factor 백테스트 해줘
+> Implement a value factor for kr_stock
 ```
-
-## What's Included
-
-| Skill | Description |
-|-------|-------------|
-| finter-data | Data loading, Symbol search, preprocessing |
-| finter-alpha | BaseAlpha strategy implementation |
-| finter-portfolio | Portfolio optimization |
-| finter-insight | Research database search (RAG) |
-| finter-operations | Error recovery workflows |
 
 ## Universes
 
@@ -71,13 +49,23 @@ claude
 |----------|--------|----------|
 | kr_stock | ~2,500 | Korean stocks (richest data) |
 | us_stock | ~8,000 | US stocks |
-| us_etf | ~6,700 | US ETFs (market data only) |
+| us_etf | ~6,700 | US ETFs |
 | vn_stock | ~1,000 | Vietnam stocks |
 | id_stock | ~1,000 | Indonesia stocks |
 | crypto_test | ~378 | Crypto (2024 only, 10min candles) |
 
+## Skills
+
+| Skill | Description |
+|-------|-------------|
+| finter-data | Data loading, Symbol search, preprocessing |
+| finter-alpha | BaseAlpha strategy, backtesting |
+| finter-portfolio | Portfolio optimization |
+| finter-insight | Research DB search (RAG) |
+| finter-operations | Error recovery workflow |
+
 ## Requirements
 
+- macOS / Linux
 - Python 3.10+
-- `finter` package
-- Claude Code CLI
+- Claude Code CLI (`claude`)
