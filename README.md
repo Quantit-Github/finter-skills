@@ -5,30 +5,32 @@ Skills for quant research with Finter platform in Claude Code.
 ## Quick Start
 
 ```bash
-# 1. Clone this repo (once)
-git clone git@github.com:Quantit-Github/finter-skills.git ~/finter-skills
+# Clone and install
+git clone git@github.com:Quantit-Github/finter-skills.git
+cd finter-skills
+./install.sh
 
-# 2. Install in your project folder (uv + finter + skills all at once)
-mkdir my-quant-project && cd my-quant-project
-~/finter-skills/install.sh
-
-# 3. Run Claude Code
+# Start working
+cd workspace
 claude
 ```
 
 ## What install.sh Does
 
 ```
-my-quant-project/
-├── .claude/
-│   └── skills/
-│       ├── finter-data/      # Data loading
-│       ├── finter-alpha/     # Alpha strategies
-│       ├── finter-portfolio/ # Portfolio optimization
-│       └── ...
-├── CLAUDE.md                 # Context for Claude
-├── pyproject.toml            # uv project
-└── .venv/                    # Python environment
+finter-skills/
+├── finter-data/          # Skills (source)
+├── finter-alpha/
+├── finter-portfolio/
+├── ...
+├── install.sh
+├── CLAUDE.md
+└── workspace/            # <- Your working directory
+    ├── .claude/
+    │   └── skills/       # Symlinks to ../finter-*
+    ├── CLAUDE.md
+    ├── pyproject.toml
+    └── .venv/
 ```
 
 ## Usage Examples
