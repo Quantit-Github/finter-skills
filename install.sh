@@ -79,8 +79,7 @@ cp "$SCRIPT_DIR/CLAUDE.md" "$TARGET_DIR/CLAUDE.md"
 echo "  Copied: CLAUDE.md"
 
 echo ""
-echo "Done! Starting Claude Code..."
+echo "Done! Starting Claude Code in workspace/..."
 echo ""
 
-cd "$TARGET_DIR"
-exec claude
+claude
