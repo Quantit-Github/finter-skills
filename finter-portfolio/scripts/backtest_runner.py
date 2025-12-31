@@ -262,11 +262,7 @@ def run_backtest(
             load_portfolio_from_file as load_portfolio_validator,
         )
 
-        # Map market_type to universe for validation
-        universe_map = {
-            "btcusdt_spot_binance": "raw",
-        }
-        val_universe = universe_map.get(universe, universe)
+        val_universe = universe
 
         PortfolioClassForValidation = load_portfolio_validator(portfolio_file)
 
@@ -411,7 +407,7 @@ Examples:
             "vn_stock",
             "id_stock",
             "us_etf",
-            "btcusdt_spot_binance",
+            "crypto_test",
         ],
         help="Market universe (required)",
     )

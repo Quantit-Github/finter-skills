@@ -172,20 +172,8 @@ alpha_return_df = self.alpha_pnl_df('us_stock', 20200101, int(datetime.now().str
 
 ## Data Preprocessing
 
-**Always clean consecutive 1's** (data artifacts):
-
-```python
-alpha_return_df = self.alpha_pnl_df('us_stock', preload_start, end)
-
-# Handle consecutive 1's (no change sequences)
-find_1 = (alpha_return_df == 1) & (alpha_return_df.shift(1) == 1)
-alpha_return_df = alpha_return_df.mask(find_1, np.nan).ffill(limit=5)
-
-# Now calculate rolling metrics
-volatility_df = alpha_return_df.rolling(126).std()
-```
-
-See `preprocessing.md` for detailed guide.
+**CRITICAL**: Always clean consecutive 1's before calculating rolling metrics.
+→ See `preprocessing.md` Section 2 for code and explanation.
 
 ## Weight DataFrame Format
 

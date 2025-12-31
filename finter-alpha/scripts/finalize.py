@@ -42,7 +42,7 @@ VALID_CATEGORIES = [
 ]
 
 VALID_UNIVERSES = [
-    "kr_stock", "us_stock", "us_etf", "vn_stock", "id_stock", "btcusdt_spot_binance",
+    "kr_stock", "us_stock", "us_etf", "vn_stock", "id_stock", "crypto_test",
 ]
 
 
@@ -269,7 +269,7 @@ def generate_info(title: str, summary: str, category: str, universe: str) -> dic
     if len(base_name) > 34:
         base_name = base_name[:34]
 
-    datetime_suffix = datetime.now().strftime("%y%m%d%H")
+    datetime_suffix = datetime.now(timezone.utc).strftime("%y%m%d%H")
     random_suffix = "".join(random.choices(string.ascii_lowercase, k=2))
     model_title = f"{base_name}_{datetime_suffix}{random_suffix}"
 
@@ -309,7 +309,7 @@ def main():
     parser.add_argument("--category", required=True, choices=VALID_CATEGORIES)
     parser.add_argument("--summary", default=None, help="Strategy summary")
     parser.add_argument("--start", type=int, default=20200101)
-    parser.add_argument("--end", type=int, default=int(datetime.now().strftime("%Y%m%d")))
+    parser.add_argument("--end", type=int, default=int(datetime.now(timezone.utc).strftime("%Y%m%d")))
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--no-chart", action="store_true")
 

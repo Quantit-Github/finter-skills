@@ -58,84 +58,87 @@ print(price_items)  # ['AveragePrice', 'ClosePrice', 'HighestPrice', ...]
 
 **Why PascalCase?** Different data provider convention. Always `cf.search()` first!
 
-## Special Case 2: Cryptocurrency (BETA)
+## Special Case 2: Cryptocurrency (crypto_test)
 
-### ⚠️ Beta Limitations
+### Features
 
-Crypto support has **major limitations**:
-- **Single asset only**: Bitcoin (BTCUSDT)
-- **Single timeframe**: 8-hour candles only
-- **No cf.search()**: Must use exact item names from documentation
-- **Different universe names**: `'raw'` for ContentFactory, `'btcusdt_spot_binance'` for Simulator
+Multi-crypto perpetual futures with high-frequency data:
+- **~378 assets**: BTC, ETH, and major altcoins
+- **10-minute candles**: High-frequency trading
+- **Rich data**: OHLCV, premium index, liquidation data
+- **Position units**: USD amounts (NOT ratios)
 
-### Critical Difference: No cf.search()
+### ⚠️ CRITICAL: Memory Constraints
 
-Unlike all other universes, **cf.search() does NOT work** for crypto:
+**USE ONLY 1 YEAR OF DATA (2024)**. 10-minute candles are VERY memory-intensive:
+
+```
+378 coins × 144 bars/day × 365 days = 19.8 million rows
+378 coins × 144 bars/day × 365 days × 5 years = 99 million rows (WILL CRASH!)
+```
+
+```python
+# ✅ CORRECT - 1 year maximum
+cf = ContentFactory('crypto_test', 20240101, 20241231)
+
+# ❌ WRONG - Will cause memory crash
+cf = ContentFactory('crypto_test', 20200101, 20241231)  # 5 years = OOM!
+cf = ContentFactory('crypto_test', 20220101, 20241231)  # 3 years = OOM!
+```
+
+**Rule**: Always use `20240101` as start date for crypto_test. Never load more than 1 year.
+
+### Data Access
 
 ```python
 from finter.data import ContentFactory
 
-cf = ContentFactory('raw', 20200101, int(datetime.now().strftime("%Y%m%d")))
+cf = ContentFactory('crypto_test', 20241201, int(datetime.now().strftime("%Y%m%d")))
 
-# ❌ Does NOT work!
-cf.search("btcusdt")  # Returns empty list!
-cf.search("price")    # Returns empty list!
+# Search works
+cf.search("volume")  # Returns volume-related items
 
-# ✅ Must use exact item names
-btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
-btc_volume = cf.get_df('content.binance.api.price_volume.btcusdt-spot-volume.8H')
+# Load data
+close = cf.get_df('close')
+volume = cf.get_df('volume')
+premium = cf.get_df('premium_close')
+liq_buy = cf.get_df('liq_buy_volume')
 ```
 
-**Available items** (hardcoded):
-- `content.binance.api.price_volume.btcusdt-spot-price_close.8H` - BTC closing price
-- `content.binance.api.price_volume.btcusdt-spot-volume.8H` - BTC trading volume
+**Available items:**
+- Price: `open`, `high`, `low`, `close`, `volume`, `turnover`, `trade_count`
+- Taker: `taker_buy_volume`, `taker_buy_turnover`
+- Premium: `premium_open`, `premium_high`, `premium_low`, `premium_close`
+- Liquidation: `liq_buy_volume`, `liq_buy_turnover`, `liq_sell_volume`, `liq_sell_turnover`
 
-### Universe Name Confusion
+### Time Resolution: 10-Minute Candles
 
-⚠️ **Different names for different contexts:**
-
-```python
-from finter.data import ContentFactory
-from finter.backtest import Simulator
-
-# ContentFactory: Use 'raw'
-cf = ContentFactory('raw', 20200101, int(datetime.now().strftime("%Y%m%d")))
-btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
-
-# Simulator: Use 'btcusdt_spot_binance'
-simulator = Simulator(market_type="btcusdt_spot_binance")
-result = simulator.run(position=positions)
-```
-
-**Why different?**
-- `'raw'` = generic universe for non-standard data
-- `'btcusdt_spot_binance'` = specific market type for simulation
-
-### Time Resolution: 8H Candles
-
-Unlike daily resolution for stocks, crypto uses **8-hour candles**:
+Unlike daily resolution for stocks, crypto uses **10-minute candles**:
 
 ```python
 # Time conversions
-# 1 period = 8 hours
-# 3 periods = 24 hours (1 day)
-# 21 periods = 7 days (1 week)
-# 126 periods = 42 days (~6 weeks)
+# 1 period = 10 minutes
+# 6 periods = 1 hour
+# 144 periods = 1 day
+# 1008 periods = 1 week
 
-# Example: 1-week momentum
-momentum = btc_close.pct_change(21)  # 21 periods = 7 days
+# Example: 1-day momentum
+momentum = close.pct_change(144)  # 144 periods = 1 day
 ```
 
-### Single Asset Positions
+### Position Units: USD Amounts
 
-No cross-sectional operations - just binary in/out:
+**CRITICAL**: Positions are USD amounts, NOT ratios!
 
 ```python
-# Simple signal: buy if positive momentum
-signal = btc_close.pct_change(21) > 0
+import pandas as pd
 
-# Positions: 1e8 (all in) or 0 (out)
-positions = signal.astype(float) * 1e8  # Single column DataFrame
+# Create position DataFrame
+position = pd.DataFrame(0.0, index=close.index, columns=close.columns)
+
+# Assign USD amounts (NOT ratios)
+position['BTCUSDT'] = 50_000  # $50k in BTC
+position['ETHUSDT'] = 30_000  # $30k in ETH
 ```
 
 ### Complete Crypto Example
@@ -147,44 +150,42 @@ from finter.backtest import Simulator
 
 class Alpha(BaseAlpha):
     def get(self, start: int, end: int, **kwargs):
-        # ⚠️ Use 'raw' universe
-        cf = ContentFactory('raw', start - 10000, end)
+        cf = ContentFactory('crypto_test', 20241101, end)
+        close = cf.get_df('close')
 
-        # ⚠️ Use exact item name (cf.search() doesn't work!)
-        btc_close = cf.get_df('content.binance.api.price_volume.btcusdt-spot-price_close.8H')
+        # 144 periods = 1 day (10-min candles)
+        momentum = close.pct_change(144, fill_method=None)
 
-        # 21 periods = 7 days (8H candles)
-        momentum = btc_close.pct_change(21)
-        signal = momentum > 0
+        # Rank and select top 5
+        ranks = momentum.rank(axis=1, ascending=False)
+        selected = ranks <= 5
 
-        # Single asset: 1e8 or 0
-        positions = signal.astype(float) * 1e8
+        # Position: $50k per selected asset
+        positions = selected.astype(float) * 50_000
 
         return positions.shift(1).loc[str(start):str(end)]
 
 # Backtest
 alpha = Alpha()
-positions = alpha.get(20200101, int(datetime.now().strftime("%Y%m%d")))
+positions = alpha.get(20241201, int(datetime.now().strftime("%Y%m%d")))
 
-# ⚠️ Use 'btcusdt_spot_binance' for Simulator
-simulator = Simulator(market_type="btcusdt_spot_binance")
+simulator = Simulator("crypto_test", 20241201, int(datetime.now().strftime("%Y%m%d")))
 result = simulator.run(position=positions)
 ```
 
-**See `../templates/examples/crypto_bitcoin.py` for full working example.**
+**See `../templates/examples/crypto_multi.py` for full working example.**
 
 ### When to Use Crypto
 
 ✅ **Suitable for:**
-- Bitcoin-specific technical strategies
-- Higher frequency signals (8H vs daily stocks)
-- Single-asset momentum/trend strategies
+- Multi-crypto cross-sectional strategies
+- High-frequency signals (10-min resolution)
+- Momentum/trend strategies across crypto universe
+- Liquidation and premium-based strategies
 
 ❌ **NOT suitable for:**
-- Multi-crypto portfolios (only BTC available)
-- Daily resolution strategies (only 8H available)
-- Altcoin strategies (only BTC available)
 - Fundamental analysis (no fundamental data)
+- Submit to production (test universe only)
 
 ## Data Discovery Best Practices
 
@@ -203,7 +204,7 @@ data = cf.get_df("eps")  # KeyError!
 data = cf.get_df("price_earnings_ratio")  # KeyError!
 ```
 
-**Exception**: Crypto (`raw` universe) - `cf.search()` doesn't work, use exact names from this document.
+**Crypto (`crypto_test`)**: Search works. Use `cf.item_list` for all 17 items.
 
 ## See Also
 

@@ -30,7 +30,7 @@ cf = ContentFactory(universe, start, end)
 ```
 
 **Parameters:**
-- `universe`: 'kr_stock', 'us_stock', 'us_etf', 'id_stock', 'vn_stock', 'raw' (crypto)
+- `universe`: 'kr_stock', 'us_stock', 'us_etf', 'id_stock', 'vn_stock', 'crypto_test'
 - `start`: Start date (YYYYMMDD)
 - `end`: End date (YYYYMMDD)
 

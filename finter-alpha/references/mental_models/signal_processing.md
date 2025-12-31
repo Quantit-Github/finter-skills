@@ -375,6 +375,79 @@ Only combine when: `IC_combined >> max(IC_1, IC_2)`
 
 ---
 
+## Problem 6: High Turnover / Edge Efficiency
+
+### Diagnostic Questions
+
+1. **How much does the signal change day-to-day?**
+   - Stable: Position changes < 5% of portfolio daily
+   - Volatile: Position changes > 20% of portfolio daily
+
+2. **Is the turnover inherent to the strategy or fixable?**
+   - Inherent: Short-horizon mean reversion, event-driven
+   - Fixable: Noisy signal that could be smoothed
+
+3. **What's the expected return per unit of turnover?**
+   - High efficiency: Strong edge justifies frequent trading
+   - Low efficiency: Edge doesn't survive trading costs
+
+### Mental Model: Edge Efficiency Lens
+
+```
+Is turnover a concern for this signal?
+│
+├── LOW turnover (< 200% annual) → Probably fine, proceed
+│
+└── HIGH turnover (> 300% annual) →
+    │
+    ├── Is this inherent to the strategy?
+    │   │
+    │   ├── YES (e.g., short-term reversal) →
+    │   │       Does edge justify the activity?
+    │   │       • Return per 100% turnover > cost per 100% turnover?
+    │   │       • If YES → proceed, this is the nature of the strategy
+    │   │       • If NO → strategy may not be viable
+    │   │
+    │   └── NO (noisy signal) →
+    │           Can smoothing reduce turnover without killing edge?
+    │           → See Problem 1: Noisy Signals
+    │
+    └── Quick check (optional):
+        Return per Turnover = Expected Annual Return / (Annual Turnover / 100)
+
+        Example: 15% return, 500% turnover → 3% per 100% TO
+        If Finter cost ~0.3% per 100% TO → net 2.7% per 100% TO → viable
+```
+
+### When This Lens is Useful
+
+| Situation | Useful? |
+|-----------|---------|
+| High-frequency signal (daily changes) | ✅ Yes |
+| Comparing two approaches with different turnover | ✅ Yes |
+| Low-frequency strategy (monthly rebalancing) | ❌ Not really |
+| Turnover is core to the edge (stat arb, etc.) | ⚠️ Partially |
+
+### When This Lens is NOT Useful
+
+- **Already committed to a frequency:** If the hypothesis requires daily rebalancing, checking "return per turnover" won't change that
+- **Turnover IS the edge:** Some strategies profit from providing liquidity; low turnover would eliminate the edge
+- **Comparing across different universes:** Cost structures vary (US vs KR vs crypto)
+
+### Key Insight: Turnover is Not Inherently Bad
+
+**High turnover with strong edge > Low turnover with weak edge.**
+
+The question isn't "is turnover high?" but "is the edge worth the activity?"
+
+A 1000% turnover strategy with 30% annual return (3% per 100% TO)
+may be better than a 100% turnover strategy with 5% return (5% per 100% TO)
+— depends on your cost structure and capacity constraints.
+
+**Don't reject high-turnover strategies automatically. Evaluate efficiency.**
+
+---
+
 ## Summary: The Meta-Mental-Model
 
 **Before applying any signal processing:**

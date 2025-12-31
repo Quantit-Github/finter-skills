@@ -166,19 +166,7 @@ return weights.loc[str(start):str(end)]  # No shift needed!
 - Correlation too high
 - Risk parity weights heavily skewed
 
-**Solution:**
-
-```python
-# ✅ ALWAYS clean consecutive 1's before calculations
-alpha_return_df = self.alpha_pnl_df('us_stock', preload_start, end)
-
-# Clean consecutive 1's
-find_1 = (alpha_return_df == 1) & (alpha_return_df.shift(1) == 1)
-alpha_return_df = alpha_return_df.mask(find_1, np.nan).ffill(limit=5)
-
-# Now calculate metrics
-volatility = alpha_return_df.rolling(126).std()
-```
+**Solution:** See `preprocessing.md` Section 2 for cleaning code.
 
 ### Problem: Wrong Return Convention
 

@@ -19,7 +19,7 @@ Output files:
 import argparse
 import importlib.util
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -304,11 +304,7 @@ def run_backtest(
             load_alpha_from_file as load_alpha_validator,
         )
 
-        # Map market_type to universe for validation
-        universe_map = {
-            "btcusdt_spot_binance": "raw",
-        }
-        val_universe = universe_map.get(universe, universe)
+        val_universe = universe
 
         # Check 0: Class Name
         print("\n  0. Class Name")
@@ -449,7 +445,7 @@ Examples:
     parser.add_argument(
         "--end",
         type=int,
-        default=int(datetime.now().strftime("%Y%m%d")),
+        default=int(datetime.now(timezone.utc).strftime("%Y%m%d")),
         help="End date in YYYYMMDD format (default: today)",
     )
 
@@ -462,7 +458,7 @@ Examples:
             "vn_stock",
             "id_stock",
             "us_etf",
-            "btcusdt_spot_binance",
+            "crypto_test",
         ],
         help="Market universe (required)",
     )

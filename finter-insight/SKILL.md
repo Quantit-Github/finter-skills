@@ -15,10 +15,37 @@ Use this skill when generating new research topics for the Fund Manager.
    - High similarity (>0.7): IMPROVE existing or pick different topic
    - Medium similarity (0.4-0.7): Review context, differentiate approach
    - Low similarity (<0.4): Proceed as novel topic
-4. Generate insights.json with related_research field
+4. Run finalize_insights.py to validate and save insights.json
 ```
 
+## CRITICAL: Use finalize_insights.py
+
+**ALWAYS use finalize_insights.py to save insights.json.**
+Do NOT use Jupyter or manual Write - use the script to ensure validation.
+
 ## Scripts
+
+### finalize_insights.py - Save and Validate insights.json (REQUIRED)
+
+**ALWAYS run this to save insights.json.** This ensures proper validation.
+
+```bash
+# From draft file
+python .claude/skills/finter-insight/scripts/finalize_insights.py --file draft_insights.json
+
+# With inline JSON (all go to completely_new)
+python .claude/skills/finter-insight/scripts/finalize_insights.py --json '[
+  {"topic": "Multi-Coin Momentum", "universe": "crypto_test", "hypothesis": "...",
+   "category": "momentum", "approach": "...", "novelty_score": 8,
+   "related_research": {"checked": true, "similar_count": 0, "max_similarity": 0.0}}
+]'
+
+# With separate categories
+python .claude/skills/finter-insight/scripts/finalize_insights.py \
+  --improve '[...]' \
+  --resurrect '[...]' \
+  --new '[...]'
+```
 
 ### search_research.py - Check for Similar Research
 

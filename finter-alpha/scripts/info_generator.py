@@ -15,7 +15,7 @@ Categories:
     momentum, value, quality, growth, size, low_vol, technical, macro, stat_arb, event, ml, composite
 
 Universes:
-    kr_stock, us_stock, vn_stock, id_stock, us_etf, btcusdt_spot_binance
+    kr_stock, us_stock, vn_stock, id_stock, us_etf, crypto_test
 
 Tags (examples):
     Selection:  top_k, bottom_k, threshold, long_short
@@ -67,7 +67,7 @@ VALID_UNIVERSES = [
     "vn_stock",
     "id_stock",
     "us_etf",
-    "btcusdt_spot_binance",
+    "crypto_test",
 ]
 
 
@@ -127,7 +127,7 @@ def generate_model_title(base_title: str) -> str:
     base_name = to_snake_case(base_title)
     if len(base_name) > MAX_BASE_NAME_LENGTH:
         base_name = base_name[:MAX_BASE_NAME_LENGTH]
-    datetime_suffix = datetime.now().strftime("%y%m%d%H")
+    datetime_suffix = datetime.now(timezone.utc).strftime("%y%m%d%H")
     random_suffix = "".join(random.choices(string.ascii_lowercase, k=2))
     return f"{base_name}_{datetime_suffix}{random_suffix}"
 

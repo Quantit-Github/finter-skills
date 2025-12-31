@@ -1,62 +1,83 @@
-# Finter Skills
+# Finter Skills for Claude Code
 
-This repository contains Claude Code skills for Finter MCP server.
+Claude Code에서 Finter 데이터/알파/포트폴리오 작업을 바로 할 수 있게 해주는 스킬 모음.
 
-## Skills
+## Installation
 
-### finter-alpha
-
-Alpha generation skill for Finter research platform using BaseAlpha framework.
-
-### finter-portfolio
-
-Portfolio optimization skill for combining multiple alpha strategies using BasePortfolio framework.
-
-### skill-creator
-
-Skill creator tool from Anthropic's official skills repository. This helps create new Claude Code skills.
-
-## Documentation
-
-- **[CLAUDE.md](CLAUDE.md)**: Practical guide for creating and extending Finter skills using MECE + SSOT principles
-- **[DESIGN_PHILOSOPHY.md](DESIGN_PHILOSOPHY.md)**: Design philosophy and comparison with Anthropic's skill-creator approach
-
-Our skills follow MECE (Mutually Exclusive, Collectively Exhaustive) and SSOT (Single Source of Truth) principles for documentation-heavy research platform guides. See the documentation files above for details.
-
-## Usage
-
-This repository is meant to be used as a git submodule in the finter-mcp project.
+### 1. Clone this repo
 
 ```bash
-git submodule add git@github.com:Quantit-Github/finter-skills.git submodule/finter-skills
+git clone https://github.com/quantit/finter-skills.git
 ```
 
-## Updating skill-creator
-
-The `skill-creator` tool is synced from [Anthropic's skills repository](https://github.com/anthropics/skills). To update it to the latest version:
+### 2. Install finter package
 
 ```bash
-./update_skill_creator.sh
+pip install finter
+# or
+uv add finter
 ```
 
-This will:
-1. Clone the latest Anthropic skills repository
-2. Replace the local `skill-creator` directory with the latest version
-3. You can then review changes and commit
-
-After running the script, commit and push the changes:
+### 3. Setup skills in your project
 
 ```bash
-git add skill-creator
-git commit -m "Update skill-creator from Anthropic"
-git push
+cd your-project
+/path/to/finter-skills/install.sh
 ```
 
-Then update the submodule in finter-mcp:
+This creates:
+```
+your-project/
+├── .claude/
+│   └── skills/
+│       ├── finter-data/
+│       ├── finter-alpha/
+│       ├── finter-portfolio/
+│       └── ...
+└── CLAUDE.md
+```
+
+### 4. Run Claude Code
 
 ```bash
-cd /path/to/finter-mcp
-git submodule update --remote submodule/finter-skills
-git add submodule/finter-skills
-git commit -m "Update finter-skills submodule"
+claude
 ```
+
+## Usage Examples
+
+```
+> finter에 한국주식 PER 데이터 있어?
+
+> us_stock에서 momentum alpha 만들어줘
+
+> crypto 데이터 어떻게 로드해?
+
+> kr_stock universe로 value factor 백테스트 해줘
+```
+
+## What's Included
+
+| Skill | Description |
+|-------|-------------|
+| finter-data | Data loading, Symbol search, preprocessing |
+| finter-alpha | BaseAlpha strategy implementation |
+| finter-portfolio | Portfolio optimization |
+| finter-insight | Research database search (RAG) |
+| finter-operations | Error recovery workflows |
+
+## Universes
+
+| Universe | Assets | Best For |
+|----------|--------|----------|
+| kr_stock | ~2,500 | Korean stocks (richest data) |
+| us_stock | ~8,000 | US stocks |
+| us_etf | ~6,700 | US ETFs (market data only) |
+| vn_stock | ~1,000 | Vietnam stocks |
+| id_stock | ~1,000 | Indonesia stocks |
+| crypto_test | ~378 | Crypto (2024 only, 10min candles) |
+
+## Requirements
+
+- Python 3.10+
+- `finter` package
+- Claude Code CLI

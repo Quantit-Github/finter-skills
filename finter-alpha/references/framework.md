@@ -130,23 +130,52 @@ positions = positions.reindex(cf.trading_days).replace(-np.inf, np.nan)
 
 ### 7. Respect Position Constraints
 
-Row sum ≤ 1e8 (total AUM):
+**Long-Only (Default)**:
+- Row sum ≤ 1e8
+- All position values ≥ 0
 
 ```python
-# Validate your positions
+# Validate long-only positions
 row_sums = positions.sum(axis=1)
 assert (row_sums <= 1e8).all(), f"Row sums exceed AUM: {row_sums.max()}"
+assert (positions >= 0).all().all(), "Long-only: no negative positions allowed"
 ```
+
+**Long-Short**:
+- Abs sum ≤ 1e8: `positions.abs().sum(axis=1) ≤ 1e8`
+- Positive = Long, Negative = Short
+- Cash = 1e8 - abs_sum
+
+```python
+# Validate long-short positions
+abs_sums = positions.abs().sum(axis=1)
+assert (abs_sums <= 1e8).all(), f"Abs sums exceed AUM: {abs_sums.max()}"
+
+# Cash calculation
+cash = 1e8 - abs_sums
+```
+
+**Long-Short Examples**:
+| Long | Short | abs_sum | Cash | Description |
+|------|-------|---------|------|-------------|
+| 0.5e8 | -0.5e8 | 1e8 | 0 | 1:1 L/S, fully invested |
+| 0.4e8 | -0.4e8 | 0.8e8 | 0.2e8 | 20% cash |
+| 0.3e8 | -0.3e8 | 0.6e8 | 0.4e8 | 40% cash |
 
 ## Position Value Semantics
 
 **IMPORTANT**: Positions represent **absolute holding amounts**, not signals.
 
 ```python
-# Position values:
+# Long-Only position values:
 # 1e8 = Hold 100% of AUM in that stock
 # 5e7 = Hold 50% of AUM
 # 0 = No position (cash or fully sold)
+
+# Long-Short position values:
+# 5e7 = Long 50% of AUM
+# -5e7 = Short 50% of AUM
+# abs_sum = total notional exposure
 ```
 
 ### Position Continuity
@@ -198,7 +227,7 @@ from helpers import get_start_date
 
 # Initialize
 cf = ContentFactory(
-    universe="kr_stock",  # or "us_stock", "btcusdt_spot_binance"
+    universe="kr_stock",  # or "us_stock", "crypto_test"
     start=get_start_date(start, buffer=365),
     end=end
 )

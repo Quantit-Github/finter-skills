@@ -26,6 +26,9 @@ close.pct_change(20, fill_method=None)  # ❌ NOT pct_change(20)
 - [ ] `class Alpha(BaseAlpha)` - not any other name
 - [ ] `return ....shift(1).fillna(0)` - both shift AND fillna
 - [ ] All `pct_change()` calls have `fill_method=None`
+- [ ] Position constraint:
+  - Long-only: `row_sum <= 1e8`
+  - Long-short: `abs_sum <= 1e8` (positive=Long, negative=Short)
 
 ## ⛔ NO SELF-FEEDBACK (CRITICAL)
 
@@ -73,6 +76,7 @@ DON'T default to any specific technique. Ask:
 | Momentum/Technical | `templates/examples/technical_analysis.py` |
 | Multi-factor | `templates/examples/multi_factor.py` |
 | Stock Selection | `templates/examples/stock_selection.py` |
+| Long-Short | `templates/examples/long_short.py` |
 | Crypto (BETA) | `templates/examples/crypto_bitcoin.py` |
 
 **Copy and modify templates - don't write from scratch!**
@@ -148,7 +152,7 @@ If validation fails, fix alpha.py and re-run.
 
 **Categories**: momentum | value | quality | growth | size | low_vol | technical | macro | stat_arb | event | ml | composite
 
-**Universes**: kr_stock | us_stock | us_etf | vn_stock | id_stock | btcusdt_spot_binance
+**Universes**: kr_stock | us_stock | us_etf | vn_stock | id_stock | crypto_test
 
 ## 📚 Documentation
 
@@ -188,6 +192,6 @@ close = cf.get_df("price_close")
 | us_etf | Market data only |
 | vn_stock | **PascalCase**: `ClosePrice` |
 | id_stock | Use `volume_sum` |
-| raw (crypto) | No cf.search(), 8H candles |
+| crypto_test | 8H candles, BTC only |
 
 See `finter-data` skill for detailed data loading guide.

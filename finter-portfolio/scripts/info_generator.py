@@ -15,7 +15,7 @@ Categories:
     equal_weight, risk_parity, mean_variance, min_variance, max_sharpe, hrp, custom
 
 Universes:
-    kr_stock, us_stock, vn_stock, id_stock, us_etf, btcusdt_spot_binance
+    kr_stock, us_stock, vn_stock, id_stock, us_etf, crypto_test
 
 Tags (examples):
     Weighting:  equal_weight, inverse_vol, risk_parity
@@ -65,7 +65,7 @@ VALID_UNIVERSES = [
     "vn_stock",
     "id_stock",
     "us_etf",
-    "btcusdt_spot_binance",
+    "crypto_test",
 ]
 
 

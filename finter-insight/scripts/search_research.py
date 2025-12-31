@@ -4,73 +4,124 @@
 Usage:
     python scripts/search_research.py "momentum strategy on kr_stock"
     python scripts/search_research.py "volatility clustering" --top 5
-    python scripts/search_research.py "value investing" --universe us_stock
+    python scripts/search_research.py --batch "momentum" "value" "quality"
 
-This script searches the research ChromaDB for similar past research,
-helping InsightAgent avoid duplicates and build on existing work.
+This script searches the local ChromaDB for similar past research.
+The DB is synced by InsightAgent at the start of each cycle.
 """
 
 import argparse
 import json
 import os
 import sys
+from pathlib import Path
 
-# Add project root to path for imports
-script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_dir))))
-sys.path.insert(0, project_root)
+# ChromaDB imports
+try:
+    import chromadb
+    from chromadb.utils import embedding_functions
+except ImportError:
+    print("ERROR: chromadb not installed. Run: pip install chromadb", file=sys.stderr)
+    sys.exit(1)
 
-from src.claude_agents.insight.research_db import get_research_db
+# Constants (must match research_db.py)
+DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+RESEARCH_CHROMADB_BASE = Path("./.research_chromadb")
+
+
+def get_chromadb_path(email: str) -> Path:
+    """Get ChromaDB path for user."""
+    safe_email = email.replace("@", "_at_").replace(".", "_")
+    return RESEARCH_CHROMADB_BASE / safe_email
 
 
 def search_research(
     query: str,
-    email: str | None = None,
+    email: str,
     top_k: int = 5,
     universe: str | None = None,
     category: str | None = None,
     verdict: str | None = None,
-    skip_sync: bool = False,
 ) -> list[dict]:
     """
     Search past research for similar topics.
 
     Args:
         query: Search query (topic, hypothesis, or keywords)
-        email: User email for ChromaDB (uses env var if not provided)
+        email: User email for ChromaDB path
         top_k: Number of results to return
         universe: Filter by universe (kr_stock, us_stock, etc.)
         category: Filter by category (momentum, value, etc.)
         verdict: Filter by verdict (DEPLOYED, FAILED)
-        skip_sync: Skip S3 sync for faster search (use when DB already synced)
 
     Returns:
         List of similar research with similarity scores
     """
-    if email is None:
-        email = os.environ.get("FINTER_USER_EMAIL", "dhlee@quantit.io")
+    db_path = get_chromadb_path(email)
 
-    db = get_research_db(email)
+    if not db_path.exists():
+        print(f"[No research DB found at {db_path}]", file=sys.stderr)
+        return []
 
-    # Sync from S3 first (unless skipped)
-    if not skip_sync:
+    try:
+        # Initialize ChromaDB client
+        client = chromadb.PersistentClient(path=str(db_path))
+
+        # Embedding function (same as research_db.py)
+        embed_fn = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name=DEFAULT_EMBEDDING_MODEL
+        )
+
+        # Get collection
         try:
-            stats = db.sync_from_s3(email)
-            if stats["indexed"] > 0:
-                print(f"[Synced {stats['indexed']} new research from S3]", file=sys.stderr)
-        except Exception as e:
-            print(f"[Sync warning: {e}]", file=sys.stderr)
+            collection = client.get_collection(
+                name="research_summaries",
+                embedding_function=embed_fn,
+            )
+        except Exception:
+            print("[Collection 'research_summaries' not found]", file=sys.stderr)
+            return []
 
-    # Search
-    results = db.search(
-        query=query,
-        n_results=top_k,
-        universe=universe,
-        category=category,
-        verdict=verdict,
-    )
+        # Build where filter
+        where_filter = {}
+        if universe:
+            where_filter["universe"] = universe
+        if category:
+            where_filter["category"] = category
+        if verdict:
+            where_filter["verdict"] = verdict
 
-    return results
+        # Query
+        query_kwargs = {
+            "query_texts": [query],
+            "n_results": top_k,
+        }
+        if where_filter:
+            query_kwargs["where"] = where_filter
+
+        results = collection.query(**query_kwargs)
+
+        # Format results
+        formatted = []
+        if results and results.get("documents"):
+            docs = results["documents"][0]
+            metas = results["metadatas"][0] if results.get("metadatas") else [{}] * len(docs)
+            distances = results["distances"][0] if results.get("distances") else [0] * len(docs)
+
+            for doc, meta, dist in zip(docs, metas, distances):
+                # Convert distance to similarity (ChromaDB uses L2 distance)
+                similarity = 1 / (1 + dist)
+                formatted.append({
+                    "document": doc,
+                    "metadata": meta,
+                    "similarity": round(similarity, 3),
+                })
+
+        return formatted
+
+    except Exception as e:
+        print(f"[Search error: {e}]", file=sys.stderr)
+        return []
 
 
 def format_result(result: dict, index: int) -> str:
@@ -108,8 +159,8 @@ Examples:
   python search_research.py --batch "momentum" "value factor" "event driven"
 
   # With filters
-  python search_research.py "event driven" --deployed-only --no-sync
-  python search_research.py "high turnover" --failed-only --no-sync
+  python search_research.py "event driven" --deployed-only
+  python search_research.py "high turnover" --failed-only
 """,
     )
     parser.add_argument("query", nargs="?", help="Search query (topic, hypothesis, or keywords)")
@@ -117,11 +168,11 @@ Examples:
     parser.add_argument("--top", type=int, default=5, help="Number of results (default: 5)")
     parser.add_argument("--universe", help="Filter by universe (kr_stock, us_stock, etc.)")
     parser.add_argument("--category", help="Filter by category (momentum, value, etc.)")
-    parser.add_argument("--email", help="User email (default: from env or dhlee@quantit.io)")
+    parser.add_argument("--email", default=os.environ.get("FINTER_USER_EMAIL", "dhlee@quantit.io"),
+                        help="User email (default: from env or dhlee@quantit.io)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("--deployed-only", action="store_true", help="Show only DEPLOYED research (for IMPROVE SUCCESSES)")
-    parser.add_argument("--failed-only", action="store_true", help="Show only FAILED research (for RESURRECT FAILURES)")
-    parser.add_argument("--no-sync", action="store_true", help="Skip S3 sync (faster, use when DB already synced)")
+    parser.add_argument("--deployed-only", action="store_true", help="Show only DEPLOYED research")
+    parser.add_argument("--failed-only", action="store_true", help="Show only FAILED research")
 
     args = parser.parse_args()
 
@@ -150,11 +201,8 @@ Examples:
             universe=args.universe,
             category=args.category,
             verdict=verdict,
-            skip_sync=args.no_sync,
         )
         all_results[query] = results
-        # Only sync once for batch
-        args.no_sync = True
 
     if args.json:
         print(json.dumps(all_results if len(queries) > 1 else results, indent=2, ensure_ascii=False))
@@ -208,8 +256,8 @@ Examples:
             for r in results[:2]:
                 sim = r.get("similarity", 0)
                 title = r.get("metadata", {}).get("title", "N/A")[:40]
-                verdict = r.get("metadata", {}).get("verdict", "?")
-                print(f"    - {sim:.2f} [{verdict}] {title}")
+                verdict_str = r.get("metadata", {}).get("verdict", "?")
+                print(f"    - {sim:.2f} [{verdict_str}] {title}")
 
 
 if __name__ == "__main__":

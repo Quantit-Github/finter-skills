@@ -12,7 +12,7 @@ Load and preprocess data from Finter platform for quantitative research.
 ### Request Type Routing (IMPORTANT!)
 
 **1. Framework/API Usage Questions** (e.g., "How to use ContentFactory?", "get_fc usage", "fc usage", "Symbol search method"):
-- ❌ DO NOT use search_cm or cf.search()
+- ❌ DO NOT use cf.search() for API questions - search is for data discovery
 - ✅ **Read skill references/ documents FIRST:**
   - `references/framework.md` - ContentFactory (cf), Symbol, get_df usage
   - `references/financial_calculator.md` - FinancialCalculator (fc), get_fc() usage
@@ -23,7 +23,7 @@ Load and preprocess data from Finter platform for quantitative research.
 - ✅ **Use `cf.search()` in Jupyter** - Search items in current universe
 - ⚠️ **ENGLISH ONLY** - `cf.search('close')` ✅, `cf.search('종가')` ❌
 - ✅ **Use `cf.usage()` for guidance** - Check general or item-specific usage
-- ⚠️ **Exception: Crypto (`raw` universe)** - search doesn't work, use exact names from docs
+- ✅ **Crypto (`crypto_test`)** - search works, items: `price_close`, `volume`
 
 **NEVER guess item names. Always search first for DATA items!**
 
@@ -234,7 +234,7 @@ fc.apply_rolling(4, 'sum', variables=['income'])  # TTM income
 | us_etf | `trading_volume` | not available | `universes/us_etf.md` |
 | vn_stock | `TotalVolume` | not available | `universes/vn_stock.md` |
 | id_stock | `volume_sum` | ``, (no prefix) | `universes/id_stock.md` |
-| raw | - | - | `universes/raw.md` |
+| crypto_test | `price_close`, `volume` | - | `universes/crypto_test.md` |
 
 ### Review Preprocessing Patterns
 **See `references/preprocessing.md` for:**

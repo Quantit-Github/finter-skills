@@ -100,9 +100,9 @@ def check_path_independence(PortfolioClass, verbose=False):
 
 def check_trading_days(PortfolioClass, universe, verbose=False):
     """Check if position index matches trading days."""
-    # Skip for raw universe (crypto) - 8H candles, no trading_days
-    if universe == "raw":
-        print("    Skipped for raw universe (crypto uses 8H candles)")
+    # Skip for crypto universe - 8H candles, no trading_days
+    if universe == "crypto_test":
+        print("    Skipped for crypto_test (crypto uses 8H candles)")
         return True, "skipped (crypto)", {}
 
     start, end = 20230101, 20231231

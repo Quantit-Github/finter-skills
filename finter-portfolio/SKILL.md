@@ -21,18 +21,7 @@ Develop quantitative portfolio strategies that combine multiple alpha strategies
 **Common Mistakes:**
 
 **Mistake 1: Not handling consecutive 1's in alpha returns**
-```python
-# ❌ WRONG - Ignoring data artifacts
-alpha_return_df = self.alpha_pnl_df('us_stock', 19980101, end)
-volatility = alpha_return_df.rolling(126).std()  # Wrong volatility!
-
-# ✅ CORRECT - Clean consecutive 1's (no change sequences)
-alpha_return_df = self.alpha_pnl_df('us_stock', 19980101, end)
-# Find consecutive 1's and keep only first 5 occurrences
-find_1 = (alpha_return_df == 1) & (alpha_return_df.shift(1) == 1)
-alpha_return_df = alpha_return_df.mask(find_1, np.nan).ffill(limit=5)
-volatility = alpha_return_df.rolling(126).std()  # Correct!
-```
+→ See `references/preprocessing.md` Section 2 for cleaning code
 
 **Mistake 2: Forgetting weight normalization**
 ```python

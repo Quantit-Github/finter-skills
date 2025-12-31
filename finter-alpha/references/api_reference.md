@@ -200,7 +200,7 @@ summary = result.summary
 
 ### Market Types
 
-Supported market types: `kr_stock`, `us_stock`, `btcusdt_spot_binance`, and more.
+Supported market types: `kr_stock`, `us_stock`, `crypto_test`, and more.
 
 **See `universe_reference.md` for complete list and universe-specific details.**
 
@@ -242,9 +242,9 @@ total_cost = costs.sum() + slippage.sum()
 gross_return = (nav.iloc[-1] / nav.iloc[0] - 1) * 100
 cost_drag = (total_cost / avg_aum) * 100  # Cost as % of AUM
 
-# IMPORTANT: NAV always starts at 1000
+# IMPORTANT: NAV starts at 1000 (NOT 1e8!)
+# Position AUM = 1e8, but NAV = 1000
 # Final NAV = 1000 * (1 + Total Return / 100)
-# Example: 50% return → NAV ends at 1500
 ```
 
 ### Key Performance Metrics
