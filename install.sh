@@ -63,8 +63,8 @@ fi
 mkdir -p "$SKILLS_DIR"
 for skill in finter-data finter-alpha finter-portfolio finter-portfolio-agent finter-insight finter-operations; do
     if [ -d "$SCRIPT_DIR/$skill" ]; then
-        ln -s "../../$skill" "$SKILLS_DIR/$skill"
-        echo "  Linked: $skill"
+        cp -r "$SCRIPT_DIR/$skill" "$SKILLS_DIR/"
+        echo "  Copied: $skill"
     fi
 done
 
