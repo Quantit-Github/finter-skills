@@ -30,6 +30,9 @@ fi
 echo "  Adding finter package..."
 uv add finter
 
+echo "  Syncing dependencies..."
+uv sync
+
 echo ""
 
 # 2. Setup Claude skills
